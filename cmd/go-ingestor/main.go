@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/url"
@@ -8,16 +9,17 @@ import (
 	"financial-data-backend-2/internal/config"
 
 	"github.com/gorilla/websocket"
+	"github.com/segmentio/kafka-go"
 )
 
 func main() {
-	// Load Configuration
+	// 1. Load Configuration
 	cfg, err := config.LoadConfig("config/config.yml")
 	if err != nil {
 		log.Fatalf("Error loading configuration: %v", err)
 	}
 
-	// Establish WebSocket Connection
+	// 2. Establish WebSocket Connection
 	u := url.URL{Scheme: "wss", Host: "ws.finnhub.io", RawQuery: "token=" + cfg.Finnhub.Token}
 	// log.Printf("Connecting to %s", u.String())
 
@@ -31,7 +33,7 @@ func main() {
 	// FinnHub has given ping messages before
 	conn.SetPingHandler(nil)
 
-	// Subscribe to Symbols
+	// 3. Subscribe to Symbols
 	// Iterate over the symbols from your config file
 	for _, symbol := range cfg.Symbols {
 		subMsg, _ := json.Marshal(map[string]interface{}{"type": "subscribe", "symbol": symbol})
@@ -41,7 +43,16 @@ func main() {
 		}
 	}
 
-	// The Read Loop (Run Forever)
+	// 4. Setup Kafka
+	kafkaWriter := &kafka.Writer{
+		Addr:     kafka.TCP(cfg.Kafka.BrokerURL),
+		Topic:    cfg.Kafka.Topic,
+		Balancer: &kafka.LeastBytes{},
+	}
+	defer kafkaWriter.Close()
+	log.Println("Kafka writer configured successfully")
+
+	// 5. The Kafka Read Loop
 	log.Println("Waiting for messages...")
 	for {
 		// Read a message from the connection
@@ -52,14 +63,24 @@ func main() {
 			break
 		}
 
+		// Skip logging pings
 		msgMap, ok := message.(map[string]interface{})
 		if ok && msgMap["type"] == "ping" {
-			// Skip logging pings
 			continue
 		}
 
-		// For now, just print the raw message to the console
-		// This proves that the entire connection and subscription logic works.
-		log.Printf("Received message: %+v", message)
+		// Otherwise, send message to Kafka
+		msgBytes, err := json.Marshal(message)
+		if err != nil {
+			log.Printf("Failed to marshal message: %v", err)
+			continue
+		}
+		err = kafkaWriter.WriteMessages(context.Background(),
+			kafka.Message{Value: msgBytes})
+		if err != nil {
+			log.Printf("Failed to write message to Kafka: %v", err)
+		} else {
+			log.Printf("Successfully sent message to Kafka: %s", string(msgBytes))
+		}
 	}
 }
