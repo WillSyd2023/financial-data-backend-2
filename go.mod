@@ -2,4 +2,7 @@ module financial-data-backend-2
 
 go 1.24.0
 
-require gopkg.in/yaml.v3 v3.0.1 // indirect
+require (
+	github.com/gorilla/websocket v1.5.3 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
+)
