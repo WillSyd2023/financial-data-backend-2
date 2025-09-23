@@ -8,14 +8,14 @@ import (
 
 // Config is the top-level struct that holds all configuration.
 type Config struct {
-	Finnhub FinnhubConfig `yaml:"finnhub"` // Changed from Alpaca
+	Finnhub FinnhubConfig `yaml:"finnhub"`
 	Kafka   KafkaConfig   `yaml:"kafka"`
 	Symbols []string      `yaml:"subscribed_symbols"`
 }
 
 // FinnhubConfig holds the configuration for the Finnhub API.
 type FinnhubConfig struct {
-	Token string `yaml:"token"` // Changed from Key/Secret
+	Token string `yaml:"token"`
 }
 
 // KafkaConfig holds the configuration for the Kafka connection.
