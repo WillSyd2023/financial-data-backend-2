@@ -32,3 +32,10 @@ services:
       dockerfile: ./cmd/go-ingestor/Dockerfile
     depends_on:
       - kafka
+  go-processor:
+    container_name: go-processor
+    build:
+      context: .
+      dockerfile: ./cmd/go-processor/Dockerfile
+    depends_on:
+      - kafka
