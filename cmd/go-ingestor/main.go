@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"net"
 	"net/url"
+	"strconv"
+	"time"
 
 	"financial-data-backend-2/internal/config"
 
@@ -12,14 +15,66 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
+func ensureTopic(cfg config.KafkaConfig) error {
+	// Dial the Kafka broker to create a connection for administrative tasks
+	conn, err := kafka.Dial("tcp", cfg.BrokerURL)
+	if err != nil {
+		log.Printf("Failed to dial Kafka for topic creation: %v", err)
+		return err
+	}
+	defer conn.Close()
+
+	// Get the controller broker
+	controller, err := conn.Controller()
+	if err != nil {
+		log.Printf("Failed to get Kafka controller: %v", err)
+		return err
+	}
+
+	// Connect to the controller broker
+	controllerConn, err := kafka.Dial("tcp", net.JoinHostPort(controller.Host, strconv.Itoa(controller.Port)))
+	if err != nil {
+		log.Printf("Failed to connect to Kafka controller: %v", err)
+		return err
+	}
+	defer controllerConn.Close()
+
+	// Define the topic configuration
+	topicConfig := kafka.TopicConfig{
+		Topic:             cfg.Topic,
+		NumPartitions:     1,
+		ReplicationFactor: 1,
+	}
+
+	// Create the topic
+	err = controllerConn.CreateTopics(topicConfig)
+	if err != nil {
+		log.Printf("Failed to create Kafka topic: %v", err)
+		return err
+	}
+
+	log.Printf("Kafka topic '%s' is ready", cfg.Topic)
+	return nil
+}
+
 func main() {
-	// 1. Load Configuration
+	// - Load Configuration
 	cfg, err := config.LoadConfig("config/config.yml")
 	if err != nil {
 		log.Fatalf("Error loading configuration: %v", err)
 	}
 
-	// 2. Establish WebSocket Connection
+	// - Retry loop to wait for Kafka to be truly ready.
+	for {
+		err := ensureTopic(cfg.Kafka)
+		if err == nil {
+			break
+		}
+		log.Println("Could not ensure Kafka topic exists, retrying in 2 seconds...")
+		time.Sleep(2 * time.Second)
+	}
+
+	// - Establish WebSocket Connection
 	u := url.URL{Scheme: "wss", Host: "ws.finnhub.io", RawQuery: "token=" + cfg.Finnhub.Token}
 	// log.Printf("Connecting to %s", u.String())
 
@@ -33,7 +88,7 @@ func main() {
 	// FinnHub has given ping messages before
 	conn.SetPingHandler(nil)
 
-	// 3. Subscribe to Symbols
+	// - Subscribe to Symbols
 	// Iterate over the symbols from your config file
 	for _, symbol := range cfg.Symbols {
 		subMsg, _ := json.Marshal(map[string]interface{}{"type": "subscribe", "symbol": symbol})
@@ -52,7 +107,7 @@ func main() {
 	defer kafkaWriter.Close()
 	log.Println("Kafka writer configured successfully")
 
-	// 5. The Kafka Read Loop
+	// - The Kafka Read Loop
 	log.Println("Waiting for messages...")
 	for {
 		// Read a message from the connection
