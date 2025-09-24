@@ -4,58 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	"net"
 	"net/url"
-	"strconv"
 	"time"
 
 	"financial-data-backend-2/internal/config"
+	"financial-data-backend-2/internal/kafka"
 
 	"github.com/gorilla/websocket"
-	"github.com/segmentio/kafka-go"
+	kafkaGo "github.com/segmentio/kafka-go"
 )
-
-func ensureTopic(cfg config.KafkaConfig) error {
-	// Dial the Kafka broker to create a connection for administrative tasks
-	conn, err := kafka.Dial("tcp", cfg.BrokerURL)
-	if err != nil {
-		log.Printf("Failed to dial Kafka for topic creation: %v", err)
-		return err
-	}
-	defer conn.Close()
-
-	// Get the controller broker
-	controller, err := conn.Controller()
-	if err != nil {
-		log.Printf("Failed to get Kafka controller: %v", err)
-		return err
-	}
-
-	// Connect to the controller broker
-	controllerConn, err := kafka.Dial("tcp", net.JoinHostPort(controller.Host, strconv.Itoa(controller.Port)))
-	if err != nil {
-		log.Printf("Failed to connect to Kafka controller: %v", err)
-		return err
-	}
-	defer controllerConn.Close()
-
-	// Define the topic configuration
-	topicConfig := kafka.TopicConfig{
-		Topic:             cfg.Topic,
-		NumPartitions:     1,
-		ReplicationFactor: 1,
-	}
-
-	// Create the topic
-	err = controllerConn.CreateTopics(topicConfig)
-	if err != nil {
-		log.Printf("Failed to create Kafka topic: %v", err)
-		return err
-	}
-
-	log.Printf("Kafka topic '%s' is ready", cfg.Topic)
-	return nil
-}
 
 func main() {
 	// - Load Configuration
@@ -66,7 +23,7 @@ func main() {
 
 	// - Retry loop to wait for Kafka to be truly ready.
 	for {
-		err := ensureTopic(cfg.Kafka)
+		err := kafka.EnsureTopic(cfg.Kafka)
 		if err == nil {
 			break
 		}
@@ -99,10 +56,10 @@ func main() {
 	}
 
 	// 4. Setup Kafka
-	kafkaWriter := &kafka.Writer{
-		Addr:     kafka.TCP(cfg.Kafka.BrokerURL),
+	kafkaWriter := &kafkaGo.Writer{
+		Addr:     kafkaGo.TCP(cfg.Kafka.BrokerURL),
 		Topic:    cfg.Kafka.Topic,
-		Balancer: &kafka.LeastBytes{},
+		Balancer: &kafkaGo.LeastBytes{},
 	}
 	defer kafkaWriter.Close()
 	log.Println("Kafka writer configured successfully")
@@ -131,7 +88,7 @@ func main() {
 			continue
 		}
 		err = kafkaWriter.WriteMessages(context.Background(),
-			kafka.Message{Value: msgBytes})
+			kafkaGo.Message{Value: msgBytes})
 		if err != nil {
 			log.Printf("Failed to write message to Kafka: %v", err)
 		} else {
