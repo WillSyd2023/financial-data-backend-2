@@ -1,19 +1,15 @@
-# Real-Time Financial Data Ingestion Pipeline
+# Real-Time Financial Data Pipeline
 
-A microservice that connects to FinnHub via WebSocket, ingests stream of trades complete with last-price updates, then send the trades to a Kafka message queue, making it ready for downstream consumption and processing.
+Engineered a containerised data pipeline in Go that ingests real-time financial data from the Finnhub WebSocket API and publishes it to a Kafka topic, enabling scalable, decoupled downstream processing and analytics.
 
 ## Planned Architecture
 
 ```mermaid
 %%{init: {'themeVariables': {'fontSize': '11px'}}}%%
 flowchart TD
-    subgraph Ingestion
+    subgraph System Architecture
         WS["FinnHub Websocket"] --> Ingestor["Go Ingestor Service"]
-    end
-    Ingestor --> Kafka["Kafka MQ"]
-    Kafka --> Processor["Go Processor Service"]
-    subgraph Future Plan: Processing
-        Processor --> Database["Database"]
+        Ingestor --> Kafka["Kafka MQ"]
     end
 ```
 
@@ -40,4 +36,4 @@ subscribed_symbols:
   - ...
 ```
 
-3. Start the stack with Docker Compose.
+3. Start the stack with `docker-compose up --build`.
