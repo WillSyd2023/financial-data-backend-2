@@ -55,7 +55,7 @@ func main() {
 		}
 	}
 
-	// 4. Setup Kafka
+	// - Setup Kafka
 	kafkaWriter := &kafkaGo.Writer{
 		Addr:     kafkaGo.TCP(cfg.Kafka.BrokerURL),
 		Topic:    cfg.Kafka.Topic,
@@ -82,6 +82,7 @@ func main() {
 		}
 
 		// Otherwise, send message to Kafka
+		log.Printf("Message: %v", message)
 		msgBytes, err := json.Marshal(message)
 		if err != nil {
 			log.Printf("Failed to marshal message: %v", err)
