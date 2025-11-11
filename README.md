@@ -26,5 +26,18 @@ flowchart TD
 
 ## How to Run
 1. Clone repository.
-2. Setup configuration, write a `config.yml` file to put on a `config` folder; include FinnHub token, Kafka URL and topic, and subscribed symbols.
+2. Setup configuration by writing a `config.yml` file to insert to a `config` folder:
+
+```yml
+finnhub:
+  token: 
+
+kafka:
+  broker_url: 
+  topic: 
+
+subscribed_symbols:
+  - ...
+```
+
 3. Start the stack with Docker Compose.
