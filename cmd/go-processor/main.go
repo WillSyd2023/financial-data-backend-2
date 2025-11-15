@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"financial-data-backend-2/internal/config"
 	"financial-data-backend-2/internal/kafka"
+	"financial-data-backend-2/internal/models"
 	"log"
 	"time"
 
@@ -54,10 +56,22 @@ func main() {
 			break
 		}
 
-		// --- Message Processing Logic ---
-
 		log.Printf("Message received | Topic: %s | Partition: %d | Offset: %d\n",
 			m.Topic, m.Partition, m.Offset)
 		log.Printf("Message Value: %s", string(m.Value))
+
+		// Unmarshal the raw JSON value from Kafka
+		var finnMsg models.FinnhubTradeMessage
+		if err := json.Unmarshal(m.Value, &finnMsg); err != nil {
+			log.Printf("Failed to unmarshal message from Kafka: %v", err)
+			log.Printf("Bad Message Value: %s", string(m.Value))
+			continue
+		}
+
+		// Check the message type
+		if finnMsg.Type != "trade" {
+			log.Printf("Received non-trade message type: %s. Skipping.", finnMsg.Type)
+			continue
+		}
 	}
 }
