@@ -55,7 +55,7 @@ func main() {
 		}
 	}
 
-	// - Setup Kafka
+	// - Setup Kafka Writer
 	kafkaWriter := &kafkaGo.Writer{
 		Addr:     kafkaGo.TCP(cfg.Kafka.BrokerURL),
 		Topic:    cfg.Kafka.Topic,
@@ -64,7 +64,7 @@ func main() {
 	defer kafkaWriter.Close()
 	log.Println("Kafka writer configured successfully")
 
-	// - The Kafka Read Loop
+	// - The Kafka Write Loop
 	log.Println("Waiting for messages...")
 	for {
 		// Read a message from the connection
@@ -78,6 +78,7 @@ func main() {
 		// Skip logging pings
 		msgMap, ok := message.(map[string]interface{})
 		if ok && msgMap["type"] == "ping" {
+			log.Println("Received PING message.")
 			continue
 		}
 

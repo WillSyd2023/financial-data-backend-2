@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"financial-data-backend-2/internal/config"
 	"financial-data-backend-2/internal/kafka"
 	"log"
 	"time"
+
+	kafkaGo "github.com/segmentio/kafka-go"
 )
 
 func main() {
@@ -22,5 +25,39 @@ func main() {
 		}
 		log.Println("Could not ensure Kafka topic exists, retrying in 2 seconds...")
 		time.Sleep(2 * time.Second)
+	}
+
+	// - Setup Kafka Reader
+	// Create the Kafka Reader
+	r := kafkaGo.NewReader(kafkaGo.ReaderConfig{
+		Brokers: []string{cfg.Kafka.BrokerURL},
+		Topic:   cfg.Kafka.Topic,
+		GroupID: "finnhub-websocket-consumer-group", // Essential for distributed consumption and offset tracking
+		// MaxBytes:    10e6, // Optional: Maximum amount of bytes to fetch in a single request (10MB)
+		// StartOffset: kafkaGo.FirstOffset, // Optional: Start from the beginning if no committed offset is found for the GroupID
+	})
+	defer func() {
+		if err := r.Close(); err != nil {
+			log.Fatal("failed to close Kafka Reader:", err)
+		}
+		log.Println("Kafka Reader closed.")
+	}()
+	log.Println("Kafka reader configured successfully. Consumer Group ID: finnhub-websocket-consumer-group")
+
+	// - The Kafka Read Loop
+	log.Println("Waiting for messages...")
+	for {
+		// Read a message from Kafka
+		m, err := r.ReadMessage(context.Background())
+		if err != nil {
+			log.Printf("Error reading message: %v", err)
+			break
+		}
+
+		// --- Message Processing Logic ---
+
+		log.Printf("Message received | Topic: %s | Partition: %d | Offset: %d\n",
+			m.Topic, m.Partition, m.Offset)
+		log.Printf("Message Value: %s", string(m.Value))
 	}
 }
