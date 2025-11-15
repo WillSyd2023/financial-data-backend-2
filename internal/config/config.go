@@ -10,6 +10,7 @@ import (
 type Config struct {
 	Finnhub FinnhubConfig `yaml:"finnhub"`
 	Kafka   KafkaConfig   `yaml:"kafka"`
+	MongoDB MongoConfig   `yaml:"mongodb"`
 	Symbols []string      `yaml:"subscribed_symbols"`
 }
 
@@ -22,6 +23,13 @@ type FinnhubConfig struct {
 type KafkaConfig struct {
 	BrokerURL string `yaml:"broker_url"`
 	Topic     string `yaml:"topic"`
+}
+
+// MongoConfig holds the configuration for the MongoDB cloud storage.
+type MongoConfig struct {
+	URL            string `yaml:"url"`
+	DatabaseName   string `yaml:"database_name"`
+	CollectionName string `yaml:"collection_name"`
 }
 
 // LoadConfig reads the configuration file from the given path and

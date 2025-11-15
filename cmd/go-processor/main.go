@@ -34,9 +34,12 @@ func main() {
 	r := kafkaGo.NewReader(kafkaGo.ReaderConfig{
 		Brokers: []string{cfg.Kafka.BrokerURL},
 		Topic:   cfg.Kafka.Topic,
-		GroupID: "finnhub-websocket-consumer-group", // Essential for distributed consumption and offset tracking
-		// MaxBytes:    10e6, // Optional: Maximum amount of bytes to fetch in a single request (10MB)
-		// StartOffset: kafkaGo.FirstOffset, // Optional: Start from the beginning if no committed offset is found for the GroupID
+		GroupID: "finnhub-websocket-consumer-group",
+		//    Essential for distributed consumption and offset tracking
+		// MaxBytes:    10e6,
+		//    Optional: Maximum amount of bytes to fetch in a single request (10MB)
+		// StartOffset: kafkaGo.FirstOffset,
+		//    Optional: Start from the beginning if no committed offset is found for the GroupID
 	})
 	defer func() {
 		if err := r.Close(); err != nil {
@@ -44,7 +47,8 @@ func main() {
 		}
 		log.Println("Kafka Reader closed.")
 	}()
-	log.Println("Kafka reader configured successfully. Consumer Group ID: finnhub-websocket-consumer-group")
+	log.Println(`Kafka reader configured successfully. 
+	Consumer Group ID: finnhub-websocket-consumer-group`)
 
 	// - The Kafka Read Loop
 	log.Println("Waiting for messages...")
@@ -70,7 +74,8 @@ func main() {
 
 		// Check the message type
 		if finnMsg.Type != "trade" {
-			log.Printf("Received non-trade message type: %s. Skipping.", finnMsg.Type)
+			log.Printf("Received non-trade message type: %s. Skipping.",
+				finnMsg.Type)
 			continue
 		}
 	}
