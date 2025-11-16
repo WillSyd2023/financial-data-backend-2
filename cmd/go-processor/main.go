@@ -166,5 +166,27 @@ func main() {
 		} else {
 			log.Printf("Successfully inserted %d trade records.", len(timeSeries))
 		}
+
+		// Update symbol metadata
+		upsertOpts := options.Update().SetUpsert(true)
+
+		for symbol, count := range symbolTradeCounts {
+			filter := bson.M{"symbol": symbol}
+
+			// $inc increments the tradeCount by the number of trades in this message
+			// $set updates the last trade time (or sets it on insert)
+			update := bson.M{
+				"$inc":         bson.M{"tradeCount": count},
+				"$set":         bson.M{"lastTradeAt": latestTimestamps[symbol]},
+				"$setOnInsert": bson.M{"symbol": symbol},
+			}
+
+			// Perform the upsert operation for each symbol
+			_, err := symbolCollection.UpdateOne(context.Background(), filter, update, upsertOpts)
+			if err != nil {
+				log.Printf("Failed to upsert symbol metadata for '%s': %v", symbol, err)
+			}
+		}
+		log.Printf("Updated metadata for %d unique symbol(s).", len(symbolTradeCounts))
 	}
 }
