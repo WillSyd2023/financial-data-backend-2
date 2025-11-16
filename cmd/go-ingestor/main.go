@@ -74,6 +74,7 @@ func main() {
 			log.Printf("Error reading message: %v", err)
 			break
 		}
+		log.Printf("Message: %v", message)
 
 		// Skip logging pings
 		msgMap, ok := message.(map[string]interface{})
@@ -83,7 +84,6 @@ func main() {
 		}
 
 		// Otherwise, send message to Kafka
-		log.Printf("Message: %v", message)
 		msgBytes, err := json.Marshal(message)
 		if err != nil {
 			log.Printf("Failed to marshal message: %v", err)

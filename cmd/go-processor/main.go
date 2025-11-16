@@ -6,6 +6,7 @@ import (
 	"financial-data-backend-2/internal/config"
 	"financial-data-backend-2/internal/kafka"
 	"financial-data-backend-2/internal/models"
+	mongoGo "financial-data-backend-2/internal/mongo"
 	"log"
 	"time"
 
@@ -50,7 +51,21 @@ func main() {
 	log.Println(`Kafka reader configured successfully. 
 	Consumer Group ID: finnhub-websocket-consumer-group`)
 
-	// - The Kafka Read Loop
+	// - Setup MongoDB database
+	DB, err := mongoGo.ConnectDB(cfg.MongoDB.URL)
+	if err != nil {
+		log.Fatalf("Failed to connect to MongoDB: %v", err)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := DB.Disconnect(ctx); err != nil {
+			log.Fatalf("Error during MongoDB disconnect: %v", err)
+		}
+		log.Println("MongoDB client disconnected.")
+	}()
+
+	// - The Read Loop
 	log.Println("Waiting for messages...")
 	for {
 		// Read a message from Kafka
