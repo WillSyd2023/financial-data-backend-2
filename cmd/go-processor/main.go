@@ -73,10 +73,8 @@ func main() {
 	// - Setup collections
 	symbolCollection := mongoGo.GetCollection(DB, cfg.MongoDB.DatabaseName,
 		cfg.MongoDB.SymbolsCollectionName)
-	/**
 	tradeCollection := mongoGo.GetCollection(DB, cfg.MongoDB.DatabaseName,
 		cfg.MongoDB.CollectionName)
-	**/
 
 	// Ensure a unique index exists on the symbol collection for performance.
 	// This is a one-time setup.
@@ -159,6 +157,14 @@ func main() {
 			if t.After(latestTimestamps[trade.Symbol]) {
 				latestTimestamps[trade.Symbol] = t
 			}
+		}
+
+		// Insert trade records in batch
+		_, err = tradeCollection.InsertMany(context.Background(), timeSeries)
+		if err != nil {
+			log.Printf("Failed to batch insert trade records into MongoDB: %v", err)
+		} else {
+			log.Printf("Successfully inserted %d trade records.", len(timeSeries))
 		}
 	}
 }
