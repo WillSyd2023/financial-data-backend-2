@@ -13,10 +13,10 @@ type SymbolDocument struct {
 	LastTradeAt time.Time          `bson:"last_trade_at"`
 }
 
-type FinnHubTradeRecord struct {
+type TradeRecord struct {
 	Id     primitive.ObjectID   `bson:"_id,omitempty"`
 	Symbol string               `bson:"symbol"`
 	Price  primitive.Decimal128 `bson:"price"`
 	Time   time.Time            `bson:"time"`
-	Volume int64                `bson:"volume"`
+	Volume primitive.Decimal128 `bson:"volume"`
 }

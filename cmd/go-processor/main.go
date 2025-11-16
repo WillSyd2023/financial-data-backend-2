@@ -8,10 +8,12 @@ import (
 	"financial-data-backend-2/internal/models"
 	mongoGo "financial-data-backend-2/internal/mongo"
 	"log"
+	"strconv"
 	"time"
 
 	kafkaGo "github.com/segmentio/kafka-go"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -111,18 +113,52 @@ func main() {
 			continue
 		}
 
-		// Check the message type
+		// Check the message
 		if finnMsg.Type != "trade" {
 			log.Printf("Received non-trade message type: %s. Skipping.",
 				finnMsg.Type)
 			continue
 		}
-
 		if len(finnMsg.Data) == 0 {
 			continue
 		}
 
-		//
+		// Prepare data for insertion/updates
+		timeSeries := make([]any, len(finnMsg.Data))
+		symbolTradeCounts := make(map[string]int64)
+		latestTimestamps := make(map[string]time.Time)
+		for i, trade := range finnMsg.Data {
+			// time
+			t := time.UnixMilli(trade.Timestamp)
 
+			// price
+			pStr := strconv.FormatFloat(trade.Price, 'f', -1, 64)
+			p, err := primitive.ParseDecimal128(pStr)
+			if err != nil {
+				log.Printf("Could not convert price string '%s' for symbol '%s' to Decimal128: %v",
+					pStr, trade.Symbol, err)
+				continue // Skip this tick if the price is invalid
+			}
+
+			// volume
+			vStr := strconv.FormatFloat(trade.Volume, 'f', -1, 64)
+			v, err := primitive.ParseDecimal128(vStr)
+			if err != nil {
+				log.Printf("Could not convert volume string '%s' for symbol '%s' to Decimal128: %v",
+					vStr, trade.Symbol, err)
+				continue // Skip this tick if the volume is invalid
+			}
+
+			// put trade to batch
+			timeSeries[i] = models.TradeRecord{
+				Symbol: trade.Symbol, Price: p,
+				Time: t, Volume: v,
+			}
+
+			symbolTradeCounts[trade.Symbol]++
+			if t.After(latestTimestamps[trade.Symbol]) {
+				latestTimestamps[trade.Symbol] = t
+			}
+		}
 	}
 }
