@@ -118,6 +118,11 @@ func main() {
 			continue
 		}
 
+		if len(finnMsg.Data) == 0 {
+			continue
+		}
+
 		//
+
 	}
 }
