@@ -11,6 +11,9 @@ import (
 	"time"
 
 	kafkaGo "github.com/segmentio/kafka-go"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func main() {
@@ -65,6 +68,27 @@ func main() {
 		log.Println("MongoDB client disconnected.")
 	}()
 
+	// - Setup collections
+	symbolCollection := mongoGo.GetCollection(DB, cfg.MongoDB.DatabaseName,
+		cfg.MongoDB.SymbolsCollectionName)
+	/**
+	tradeCollection := mongoGo.GetCollection(DB, cfg.MongoDB.DatabaseName,
+		cfg.MongoDB.CollectionName)
+	**/
+
+	// Ensure a unique index exists on the symbol collection for performance.
+	// This is a one-time setup.
+	_, err = symbolCollection.Indexes().CreateOne(
+		context.Background(),
+		mongo.IndexModel{
+			Keys:    bson.M{"symbol": 1},
+			Options: options.Index().SetUnique(true),
+		},
+	)
+	if err != nil {
+		log.Printf("Could not create unique index on symbols (may already exist): %v", err)
+	}
+
 	// - The Read Loop
 	log.Println("Waiting for messages...")
 	for {
@@ -93,5 +117,7 @@ func main() {
 				finnMsg.Type)
 			continue
 		}
+
+		//
 	}
 }
