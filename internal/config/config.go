@@ -27,9 +27,10 @@ type KafkaConfig struct {
 
 // MongoConfig holds the configuration for the MongoDB cloud storage.
 type MongoConfig struct {
-	URL            string `yaml:"url"`
-	DatabaseName   string `yaml:"database_name"`
-	CollectionName string `yaml:"collection_name"`
+	URL                   string `yaml:"url"`
+	DatabaseName          string `yaml:"database_name"`
+	CollectionName        string `yaml:"collection_name"`
+	SymbolsCollectionName string `yaml:"symbols_collection_name"`
 }
 
 // LoadConfig reads the configuration file from the given path and
