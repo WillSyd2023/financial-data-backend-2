@@ -32,6 +32,8 @@ services:
       dockerfile: ./cmd/go-ingestor/Dockerfile
     depends_on:
       - kafka
+    volumes:
+      - ./config/config.yml:/app/config/config.yml:ro 
   go-processor:
     container_name: go-processor
     build:
@@ -39,3 +41,14 @@ services:
       dockerfile: ./cmd/go-processor/Dockerfile
     depends_on:
       - kafka
+    volumes:
+      - ./config/config.yml:/app/config/config.yml:ro 
+  go-api-service:
+    container_name: go-api-service
+    build:
+      context: .
+      dockerfile: ./cmd/go-api-service/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./config/config.yml:/app/config/config.yml:ro 

@@ -5,7 +5,7 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY ./cmd ./cmd
+COPY ./cmd/go-ingestor ./cmd/go-ingestor
 COPY ./internal ./internal
 
 RUN go build -o /app/ingestor ./cmd/go-ingestor
@@ -16,8 +16,5 @@ WORKDIR /app
 
 # grab compiled code from the top image
 COPY --from=builder /app/ingestor .
-
-# grab config YML from local
-COPY config/config.yml ./config/config.yml
 
 CMD ["./ingestor"]
