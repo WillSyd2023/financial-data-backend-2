@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"errors"
+	"financial-data-backend-2/internal/api/constant"
 	"financial-data-backend-2/internal/api/dto"
 	"net/http"
 
@@ -20,6 +21,16 @@ func Error() gin.HandlerFunc {
 
 		// There is error; what error is it?
 		err := c.Errors[0]
+
+		// - Custom error from `constant` repo
+		var ce constant.CustomError
+		if errors.As(err, &ce) {
+			c.AbortWithStatusJSON(ce.StatusCode, dto.Res{
+				Success: false,
+				Error:   ce.Error(),
+			})
+			return
+		}
 
 		// - Timeout error
 		if errors.Is(err, context.DeadlineExceeded) {

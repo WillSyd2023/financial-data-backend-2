@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"financial-data-backend-2/internal/api/constant"
 	"financial-data-backend-2/internal/api/dto"
 	"financial-data-backend-2/internal/api/usecase"
 	"net/http"
@@ -52,5 +53,10 @@ func (hd *Handler) GetSymbols(ctx *gin.Context) {
 }
 
 func (hd *Handler) GetTradesPerSymbol(ctx *gin.Context) {
-	// usecase
+	// request validation
+	symbol := ctx.Param("symbol")
+	if symbol == "" {
+		ctx.Error(constant.ErrNoSymbol)
+		return
+	}
 }
