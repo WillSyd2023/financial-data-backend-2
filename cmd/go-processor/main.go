@@ -159,8 +159,12 @@ func main() {
 			}
 		}
 
+		// Timeout for MongoDB
+		opCtx, opCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer opCancel()
+
 		// Insert trade records in batch
-		_, err = tradeCollection.InsertMany(context.Background(), timeSeries)
+		_, err = tradeCollection.InsertMany(opCtx, timeSeries)
 		if err != nil {
 			log.Printf("Failed to batch insert trade records into MongoDB: %v", err)
 		} else {
@@ -182,7 +186,7 @@ func main() {
 			}
 
 			// Perform the upsert operation for each symbol
-			_, err := symbolCollection.UpdateOne(context.Background(), filter, update, upsertOpts)
+			_, err := symbolCollection.UpdateOne(opCtx, filter, update, upsertOpts)
 			if err != nil {
 				log.Printf("Failed to upsert symbol metadata for '%s': %v", symbol, err)
 			}
