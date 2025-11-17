@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"financial-data-backend-2/internal/api/handler"
 	"financial-data-backend-2/internal/api/middleware"
+	"financial-data-backend-2/internal/api/repo"
+	"financial-data-backend-2/internal/api/usecase"
 	"financial-data-backend-2/internal/config"
 	mongoGo "financial-data-backend-2/internal/mongo"
 	"log"
@@ -34,6 +37,12 @@ func main() {
 		log.Println("MongoDB client disconnected.")
 	}()
 
+	// - Setup collections
+	sc := mongoGo.GetCollection(DB, cfg.MongoDB.DatabaseName,
+		cfg.MongoDB.SymbolsCollectionName)
+	tc := mongoGo.GetCollection(DB, cfg.MongoDB.DatabaseName,
+		cfg.MongoDB.CollectionName)
+
 	// Setup server and middlewares
 	r := gin.New()
 	r.Use(gin.Logger())
@@ -41,15 +50,18 @@ func main() {
 	r.Use(middleware.Timeout(10 * time.Second))
 
 	// Setup apps
+	rp := repo.NewRepo(sc, tc)
+	uc := usecase.NewUsecase(rp)
+	hd := handler.NewHandler(uc)
 
 	// Endpoints:
-	// v1 := r.Group("/api/v1")
-	// {
-	// 1. Get metadata for all tracked symbols.
-	// v1.GET("/symbols" ..)
-	// 2. Get the 50 most recent trades for one symbol.
-	// v1.GET("/trades/:symbol/latest", ...)
-	// }
+	v1 := r.Group("/api/v1")
+	{
+		// 1. Get metadata for all tracked symbols.
+		v1.GET("/symbols", hd.GetSymbols)
+		// 2. Get the 50 most recent trades for one symbol.
+		v1.GET("/trades/:symbol/latest", hd.GetTradesPerSymbol)
+	}
 
 	// Run server
 	srv := &http.Server{
