@@ -2,10 +2,15 @@ package main
 
 import (
 	"context"
+	"financial-data-backend-2/internal/api/middleware"
 	"financial-data-backend-2/internal/config"
 	mongoGo "financial-data-backend-2/internal/mongo"
 	"log"
+	"net/http"
+	"os"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -28,4 +33,23 @@ func main() {
 		}
 		log.Println("MongoDB client disconnected.")
 	}()
+
+	// Setup server and middlewares
+	r := gin.New()
+	r.Use(gin.Logger())
+	// r.Use(middleware.Error())
+	r.Use(middleware.Timeout(10 * time.Second))
+
+	// Setup apps
+
+	// Endpoints:
+
+	// Run server
+	srv := &http.Server{
+		Addr:    os.Getenv("SERVER_PORT"),
+		Handler: r.Handler(),
+	}
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Fatalf("listen: %s\n", err)
+	}
 }

@@ -240,3 +240,4 @@ go.work.sum
 # .vscode/
 
 config/config.yml
+.DS_Store
