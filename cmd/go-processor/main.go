@@ -181,7 +181,7 @@ func main() {
 			// $set updates the last trade time (or sets it on insert)
 			update := bson.M{
 				"$inc":         bson.M{"tradeCount": count},
-				"$set":         bson.M{"lastTradeAt": latestTimestamps[symbol]},
+				"$max":         bson.M{"lastTradeAt": latestTimestamps[symbol]},
 				"$setOnInsert": bson.M{"symbol": symbol},
 			}
 
