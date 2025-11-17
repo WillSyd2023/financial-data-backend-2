@@ -110,6 +110,7 @@ func main() {
 			log.Printf("Bad Message Value: %s", string(m.Value))
 			continue
 		}
+		log.Printf("Unmarshalled Data: %+v", finnMsg)
 
 		// Check the message
 		if finnMsg.Type != "trade" {
