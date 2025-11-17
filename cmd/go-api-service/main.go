@@ -43,6 +43,13 @@ func main() {
 	// Setup apps
 
 	// Endpoints:
+	// v1 := r.Group("/api/v1")
+	// {
+	// 1. Get metadata for all tracked symbols.
+	// v1.GET("/symbols" ..)
+	// 2. Get the 50 most recent trades for one symbol.
+	// v1.GET("/trades/:symbol/latest", ...)
+	// }
 
 	// Run server
 	srv := &http.Server{
