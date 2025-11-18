@@ -8,6 +8,7 @@ import (
 
 type UsecaseItf interface {
 	GetSymbols(context.Context) ([]models.SymbolDocument, error)
+	GetTradesPerSymbol(context.Context, string, int, int64) ([]models.TradeRecord, error)
 }
 
 type Usecase struct {
@@ -21,4 +22,9 @@ func NewUsecase(rp repo.RepoItf) *Usecase {
 func (uc *Usecase) GetSymbols(ctx context.Context) ([]models.SymbolDocument, error) {
 	// repo
 	return uc.rp.GetSymbols(ctx)
+}
+
+func (uc *Usecase) GetTradesPerSymbol(ctx context.Context, symbol string, limit int, before int64) ([]models.TradeRecord, error) {
+	// repo
+	return uc.rp.GetTradesPerSymbol(ctx, symbol, limit, before)
 }

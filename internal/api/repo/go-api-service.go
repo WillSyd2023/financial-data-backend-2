@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"financial-data-backend-2/internal/models"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -38,6 +39,29 @@ func (rp *Repo) GetSymbols(c context.Context) ([]models.SymbolDocument, error) {
 	return symbols, nil
 }
 
-func (rp *Repo) GetTradesPerSymbol(ctx context.Context, symbol string, limit int, before int64) ([]models.TradeRecord, error) {
-	return nil, nil
+func (r *Repo) GetTradesPerSymbol(ctx context.Context, symbol string, limit int, before int64) ([]models.TradeRecord, error) {
+	filter := bson.M{"symbol": symbol}
+
+	// If a 'before' cursor is provided, add it to the filter.
+	// This finds all trades OLDER than the cursor.
+	if before > 0 {
+		filter["time"] = bson.M{"$lt": time.UnixMilli(before)}
+	}
+
+	findOptions := options.Find().
+		SetSort(bson.D{{Key: "time", Value: -1}}).
+		SetLimit(int64(limit))
+
+	cursor, err := r.tc.Find(ctx, filter, findOptions)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var trades []models.TradeRecord
+	if err = cursor.All(ctx, &trades); err != nil {
+		return nil, err
+	}
+
+	return trades, nil
 }
