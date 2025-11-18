@@ -1,6 +1,7 @@
 package constant
 
 const (
-	DefaultOffset int = 0
-	DefaultLimit  int = 15
+	DefaultCursor    int64  = 0
+	DefaultCursorStr string = "0"
+	DefaultLimit     int    = 15
 )

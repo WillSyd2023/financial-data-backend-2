@@ -4,7 +4,6 @@ import (
 	"financial-data-backend-2/internal/api/constant"
 	"financial-data-backend-2/internal/api/dto"
 	"financial-data-backend-2/internal/api/usecase"
-	"financial-data-backend-2/internal/models"
 	"net/http"
 	"strconv"
 
@@ -69,23 +68,21 @@ func (hd *Handler) GetTradesPerSymbol(ctx *gin.Context) {
 		limit = constant.DefaultLimit
 	}
 	limit, err := strconv.Atoi(limitStr)
-	if err != nil {
+	if err != nil || limit <= 0 {
 		limit = constant.DefaultLimit
 	}
-	var offset int
-	offsetStr := ctx.Query("offset")
-	if offsetStr == "" {
-		offset = constant.DefaultOffset
+
+	// Parse the 'before' cursor. It's a Unix millisecond timestamp.
+	// If it's not provided, it defaults to 0, which our service
+	// will treat as "get the latest".
+	var before int64
+	beforeStr := ctx.DefaultQuery("before", constant.DefaultCursorStr)
+	if beforeStr == "" {
+		before = constant.DefaultCursor
 	}
-	offset, err = strconv.Atoi(offsetStr)
-	if err != nil {
-		offset = constant.DefaultOffset
+	before, err = strconv.ParseInt(beforeStr, 10, 64)
+	if err != nil || before < 0 {
+		before = constant.DefaultCursor
 	}
 
-	params := models.GetTradesPerSymbolParams{
-		Symbol: symbol,
-		PaginationQuery: models.PaginationQuery{
-			Limit: limit, Offset: offset,
-		},
-	}
 }
