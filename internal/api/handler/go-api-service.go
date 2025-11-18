@@ -4,7 +4,9 @@ import (
 	"financial-data-backend-2/internal/api/constant"
 	"financial-data-backend-2/internal/api/dto"
 	"financial-data-backend-2/internal/api/usecase"
+	"financial-data-backend-2/internal/models"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -58,5 +60,32 @@ func (hd *Handler) GetTradesPerSymbol(ctx *gin.Context) {
 	if symbol == "" {
 		ctx.Error(constant.ErrNoSymbol)
 		return
+	}
+
+	// Get limit and offset
+	var limit int
+	limitStr := ctx.Query("limit")
+	if limitStr == "" {
+		limit = constant.DefaultLimit
+	}
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil {
+		limit = constant.DefaultLimit
+	}
+	var offset int
+	offsetStr := ctx.Query("offset")
+	if offsetStr == "" {
+		offset = constant.DefaultOffset
+	}
+	offset, err = strconv.Atoi(offsetStr)
+	if err != nil {
+		offset = constant.DefaultOffset
+	}
+
+	params := models.GetTradesPerSymbolParams{
+		Symbol: symbol,
+		PaginationQuery: models.PaginationQuery{
+			Limit: limit, Offset: offset,
+		},
 	}
 }
