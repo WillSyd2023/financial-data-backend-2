@@ -1,16 +1,16 @@
 package repo
 
 import (
+	"context"
 	"financial-data-backend-2/internal/models"
 
-	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type RepoItf interface {
-	GetSymbols(*gin.Context) ([]models.SymbolDocument, error)
+	GetSymbols(context.Context) ([]models.SymbolDocument, error)
 }
 
 type Repo struct {
@@ -22,8 +22,7 @@ func NewRepo(symbolCollection, tradeCollection *mongo.Collection) *Repo {
 	return &Repo{sc: symbolCollection, tc: tradeCollection}
 }
 
-func (rp *Repo) GetSymbols(ctx *gin.Context) ([]models.SymbolDocument, error) {
-	c := ctx.Request.Context()
+func (rp *Repo) GetSymbols(c context.Context) ([]models.SymbolDocument, error) {
 	results, err := rp.sc.Find(c, bson.D{}, options.Find().SetSort(
 		bson.D{{Key: "symbol", Value: 1}}))
 	if err != nil {

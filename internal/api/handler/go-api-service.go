@@ -26,7 +26,7 @@ func NewHandler(uc usecase.UsecaseItf) *Handler {
 
 func (hd *Handler) GetSymbols(ctx *gin.Context) {
 	// usecase
-	symbols, err := hd.uc.GetSymbols(ctx)
+	symbols, err := hd.uc.GetSymbols(ctx.Request.Context())
 	if err != nil {
 		ctx.Error(err)
 		return
