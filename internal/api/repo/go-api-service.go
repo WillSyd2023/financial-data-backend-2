@@ -11,6 +11,7 @@ import (
 
 type RepoItf interface {
 	GetSymbols(context.Context) ([]models.SymbolDocument, error)
+	GetTradesPerSymbol(context.Context, string, int, int64) ([]models.TradeRecord, error)
 }
 
 type Repo struct {
@@ -28,16 +29,15 @@ func (rp *Repo) GetSymbols(c context.Context) ([]models.SymbolDocument, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	symbols := make([]models.SymbolDocument, 0)
 	defer results.Close(c)
-	for results.Next(c) {
-		var symbol models.SymbolDocument
-		if err = results.Decode(&symbol); err != nil {
-			return nil, err
-		}
-		symbols = append(symbols, symbol)
-	}
 
+	var symbols []models.SymbolDocument
+	if err = results.All(c, &symbols); err != nil {
+		return nil, err
+	}
 	return symbols, nil
+}
+
+func (rp *Repo) GetTradesPerSymbol(ctx context.Context, symbol string, limit int, before int64) ([]models.TradeRecord, error) {
+	return nil, nil
 }
