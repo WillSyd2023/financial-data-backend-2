@@ -10,6 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+//go:generate mockery --name RepoItf --case underscore --keeptree
 type RepoItf interface {
 	GetSymbols(context.Context) ([]models.SymbolDocument, error)
 	GetTradesPerSymbol(context.Context, string, int, int64) ([]models.TradeRecord, error)
