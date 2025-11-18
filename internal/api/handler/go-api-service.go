@@ -6,6 +6,7 @@ import (
 	"financial-data-backend-2/internal/api/usecase"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -85,4 +86,38 @@ func (hd *Handler) GetTradesPerSymbol(ctx *gin.Context) {
 		before = constant.DefaultCursor
 	}
 
+	// usecase
+	trades, err := hd.uc.GetTradesPerSymbol(ctx.Request.Context(),
+		symbol, limit, before)
+	if err != nil {
+		ctx.Error(err)
+		return
+	}
+
+	// Figure out response DTO
+	// - trades
+	var res dto.PaginatedTradesResponseDTO
+	for _, trade := range trades {
+		res.Data = append(res.Data,
+			dto.TradeResponseDTO{
+				Timestamp: trade.Time.Format(time.RFC3339Nano),
+				Price:     trade.Price.String(),
+				Volume:    trade.Volume.String(),
+			})
+	}
+
+	// - next cursor
+	res.Pagination = dto.PaginationDTO{}
+	if len(trades) == limit {
+		next := trades[len(trades)-1].Time.UnixMilli()
+		res.Pagination.NextCursor = &next
+	}
+
+	// return response
+	ctx.JSON(http.StatusOK,
+		gin.H{
+			"message": nil,
+			"error":   nil,
+			"data":    res,
+		})
 }
