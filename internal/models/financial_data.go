@@ -9,8 +9,8 @@ import (
 type SymbolDocument struct {
 	Id          primitive.ObjectID `bson:"_id,omitempty"`
 	Symbol      string             `bson:"symbol"`
-	TradeCount  int64              `bson:"trade_count"`
-	LastTradeAt time.Time          `bson:"last_trade_at"`
+	TradeCount  int64              `bson:"tradeCount"`
+	LastTradeAt time.Time          `bson:"lastTradeAt"`
 }
 
 type TradeRecord struct {
