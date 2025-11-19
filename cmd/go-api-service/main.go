@@ -59,7 +59,7 @@ func main() {
 		// 1. Get metadata for all tracked symbols.
 		v1.GET("/symbols", hd.GetSymbols)
 		// 2. Get the 50 most recent trades for one symbol.
-		v1.GET("/trades/:symbol/latest", hd.GetTradesPerSymbol)
+		v1.GET("/trades/:symbol", hd.GetTradesPerSymbol)
 	}
 
 	// Run server
