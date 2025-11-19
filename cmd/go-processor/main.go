@@ -96,7 +96,7 @@ func main() {
 		m, err := r.ReadMessage(context.Background())
 		if err != nil {
 			log.Printf("Error reading message: %v", err)
-			break
+			continue
 		}
 
 		log.Printf("Message received | Topic: %s | Partition: %d | Offset: %d\n",
@@ -123,10 +123,10 @@ func main() {
 		}
 
 		// Prepare data for insertion/updates
-		timeSeries := make([]any, len(finnMsg.Data))
+		timeSeries := make([]any, 0)
 		symbolTradeCounts := make(map[string]int64)
 		latestTimestamps := make(map[string]time.Time)
-		for i, trade := range finnMsg.Data {
+		for _, trade := range finnMsg.Data {
 			// time
 			t := time.UnixMilli(trade.Timestamp)
 
@@ -149,49 +149,74 @@ func main() {
 			}
 
 			// put trade to batch
-			timeSeries[i] = models.TradeRecord{
-				Symbol: trade.Symbol, Price: p,
-				Time: t, Volume: v,
-			}
+			timeSeries = append(timeSeries, models.TradeRecord{
+				Id:     primitive.NewObjectID(),
+				Symbol: trade.Symbol,
+				Price:  p,
+				Time:   t,
+				Volume: v,
+			})
 
 			symbolTradeCounts[trade.Symbol]++
 			if t.After(latestTimestamps[trade.Symbol]) {
 				latestTimestamps[trade.Symbol] = t
 			}
 		}
+		if len(timeSeries) == 0 {
+			continue
+		}
+
+		session, err := DB.StartSession()
+		if err != nil {
+			log.Printf("FATAL: Failed to start MongoDB session: %v", err)
+			continue
+		}
+
+		// Define the transaction logic in a callback function
+		callback := func(sessionCtx mongo.SessionContext) (interface{}, error) {
+			// Insert trade records in batch
+			_, err = tradeCollection.InsertMany(sessionCtx, timeSeries)
+			if err != nil {
+				log.Printf("Failed to batch insert trade records into MongoDB: %v", err)
+				return nil, err
+			}
+
+			// Update symbol metadata
+			upsertOpts := options.Update().SetUpsert(true)
+			for symbol, count := range symbolTradeCounts {
+				filter := bson.M{"symbol": symbol}
+
+				// $inc increments the tradeCount by the number of trades in this message
+				// $set updates the last trade time (or sets it on insert)
+				update := bson.M{
+					"$inc":         bson.M{"tradeCount": count},
+					"$max":         bson.M{"lastTradeAt": latestTimestamps[symbol]},
+					"$setOnInsert": bson.M{"symbol": symbol},
+				}
+
+				// Perform the upsert operation for each symbol
+				_, err := symbolCollection.UpdateOne(sessionCtx, filter, update, upsertOpts)
+				if err != nil {
+					log.Printf("Failed to upsert symbol metadata for '%s': %v", symbol, err)
+					return nil, err
+				}
+			}
+
+			return nil, nil
+		}
 
 		// Timeout for MongoDB
 		opCtx, opCancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer opCancel()
+		_, err = session.WithTransaction(opCtx, callback)
 
-		// Insert trade records in batch
-		_, err = tradeCollection.InsertMany(opCtx, timeSeries)
+		opCancel()
+		session.EndSession(context.Background())
+
 		if err != nil {
-			log.Printf("Failed to batch insert trade records into MongoDB: %v", err)
+			log.Printf("MongoDB transaction failed (rollback was automatic): %v", err)
 		} else {
-			log.Printf("Successfully inserted %d trade records.", len(timeSeries))
+			log.Printf("Successfully committed transaction for %d trades.", len(timeSeries))
+			log.Printf("Updated metadata for %d unique symbol(s).", len(symbolTradeCounts))
 		}
-
-		// Update symbol metadata
-		upsertOpts := options.Update().SetUpsert(true)
-
-		for symbol, count := range symbolTradeCounts {
-			filter := bson.M{"symbol": symbol}
-
-			// $inc increments the tradeCount by the number of trades in this message
-			// $set updates the last trade time (or sets it on insert)
-			update := bson.M{
-				"$inc":         bson.M{"tradeCount": count},
-				"$max":         bson.M{"lastTradeAt": latestTimestamps[symbol]},
-				"$setOnInsert": bson.M{"symbol": symbol},
-			}
-
-			// Perform the upsert operation for each symbol
-			_, err := symbolCollection.UpdateOne(opCtx, filter, update, upsertOpts)
-			if err != nil {
-				log.Printf("Failed to upsert symbol metadata for '%s': %v", symbol, err)
-			}
-		}
-		log.Printf("Updated metadata for %d unique symbol(s).", len(symbolTradeCounts))
 	}
 }
