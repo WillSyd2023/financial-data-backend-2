@@ -98,7 +98,53 @@ func TestGetTradesPerSymbol(t *testing.T) {
 		before                 int64 // UnixMilli timestamp
 		expectedNumTrades      int
 		expectedFirstTradeTime time.Time
-	}{}
+	}{
+		{
+			name:                   "Get first page (full page of 10)",
+			symbol:                 "TEST",
+			limit:                  10,
+			before:                 0, // No cursor, get the latest
+			expectedNumTrades:      10,
+			expectedFirstTradeTime: now, // The most recent trade
+		},
+		{
+			name:                   "Get second page using cursor (full page of 10)",
+			symbol:                 "TEST",
+			limit:                  10,
+			before:                 now.Add(-9 * time.Second).UnixMilli(),
+			expectedNumTrades:      10,
+			expectedFirstTradeTime: now.Add(-10 * time.Second), // The 11th trade
+		},
+		{
+			name:                   "Get partial last page",
+			symbol:                 "TEST",
+			limit:                  10,
+			before:                 now.Add(-14 * time.Second).UnixMilli(), // Cursor from 15th trade
+			expectedNumTrades:      5,                                      // Should only get the remaining 5
+			expectedFirstTradeTime: now.Add(-15 * time.Second),
+		},
+		{
+			name:              "Non-existent symbol returns empty slice",
+			symbol:            "NOSYMBOL",
+			limit:             10,
+			before:            0,
+			expectedNumTrades: 0,
+		},
+		{
+			name:              "Edge case: limit of 0 returns empty slice",
+			symbol:            "TEST",
+			limit:             0,
+			before:            0,
+			expectedNumTrades: 0,
+		},
+		{
+			name:              "No trades found after cursor",
+			symbol:            "TEST",
+			limit:             10,
+			before:            now.Add(-19 * time.Second).UnixMilli(), // Cursor from the very last trade
+			expectedNumTrades: 0,
+		},
+	}
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
