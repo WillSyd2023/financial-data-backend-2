@@ -4,6 +4,7 @@ go 1.24.0
 
 require (
 	github.com/gin-gonic/gin v1.11.0
+	github.com/go-playground/assert v1.2.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/segmentio/kafka-go v0.4.49
 	github.com/stretchr/testify v1.11.1
