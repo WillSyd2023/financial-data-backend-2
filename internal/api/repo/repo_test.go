@@ -96,6 +96,36 @@ func TestGetSymbols(t *testing.T) {
 			expectedNumSymbols:  0,
 			expectedFirstSymbol: "",
 		},
+		{
+			name: "only one symbol added",
+			collectionInput: func() []any {
+				input := make([]any, 1)
+				input[0] = models.SymbolDocument{
+					Symbol: "A",
+				}
+				return input
+			},
+			expectedNumSymbols:  1,
+			expectedFirstSymbol: "A",
+		},
+		{
+			name: "several symbols added",
+			collectionInput: func() []any {
+				input := make([]any, 3)
+				input[0] = models.SymbolDocument{
+					Symbol: "Z",
+				}
+				input[1] = models.SymbolDocument{
+					Symbol: "M",
+				}
+				input[2] = models.SymbolDocument{
+					Symbol: "N",
+				}
+				return input
+			},
+			expectedNumSymbols:  3,
+			expectedFirstSymbol: "M",
+		},
 	}
 
 	for _, tt := range testCases {
