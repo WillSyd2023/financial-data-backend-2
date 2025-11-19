@@ -10,7 +10,6 @@ import (
 	mongoGo "financial-data-backend-2/internal/mongo"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -65,7 +64,7 @@ func main() {
 
 	// Run server
 	srv := &http.Server{
-		Addr:    os.Getenv("SERVER_PORT"),
+		Addr:    ":" + cfg.APIPort,
 		Handler: r.Handler(),
 	}
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
