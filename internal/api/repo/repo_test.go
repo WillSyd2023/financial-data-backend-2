@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -78,4 +80,40 @@ func TestMain(m *testing.M) {
 	log.Println("MongoDB client disconnected.")
 
 	os.Exit(exitCode)
+}
+func TestGetTradesPerSymbol(t *testing.T) {
+	// Before running the test cases, seed the database with our mock data.
+	// Ensure the collection is clean first.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err := testTradeCollection.DeleteMany(ctx, bson.M{})
+	assert.NoError(t, err)
+	_, err = testTradeCollection.InsertMany(ctx, mockTradeData)
+	assert.NoError(t, err)
+
+	testCases := []struct {
+		name                   string
+		symbol                 string
+		limit                  int
+		before                 int64 // UnixMilli timestamp
+		expectedNumTrades      int
+		expectedFirstTradeTime time.Time
+	}{}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			// ACT
+			trades, err := testRepo.GetTradesPerSymbol(context.Background(), tt.symbol, tt.limit, tt.before)
+
+			// ASSERT
+			assert.NoError(t, err)
+			assert.NotNil(t, trades)
+			assert.Len(t, trades, tt.expectedNumTrades)
+
+			// If we expect results, check the first one to verify sorting
+			if tt.expectedNumTrades > 0 {
+				assert.Equal(t, tt.expectedFirstTradeTime, trades[0].Time)
+			}
+		})
+	}
 }
