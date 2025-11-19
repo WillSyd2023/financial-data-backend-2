@@ -81,16 +81,49 @@ func TestMain(m *testing.M) {
 
 	os.Exit(exitCode)
 }
-func TestGetTradesPerSymbol(t *testing.T) {
-	// Before running the test cases, seed the database with our mock data.
-	// Ensure the collection is clean first.
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	_, err := testTradeCollection.DeleteMany(ctx, bson.M{})
-	assert.NoError(t, err)
-	_, err = testTradeCollection.InsertMany(ctx, mockTradeData)
-	assert.NoError(t, err)
+func TestGetSymbols(t *testing.T) {
+	testCases := []struct {
+		name                string
+		collectionInput     func() []any
+		expectedNumSymbols  int
+		expectedFirstSymbol string
+	}{
+		{
+			name: "no symbol added",
+			collectionInput: func() []any {
+				return make([]any, 0)
+			},
+			expectedNumSymbols:  0,
+			expectedFirstSymbol: "",
+		},
+	}
 
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			// given
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_, err := testSymbolCollection.DeleteMany(ctx, bson.M{})
+			assert.NoError(t, err)
+			_, err = testSymbolCollection.InsertMany(ctx, tt.collectionInput())
+			assert.NoError(t, err)
+
+			// when
+			symbols, err := testRepo.GetSymbols(context.Background())
+
+			// then
+			assert.NoError(t, err)
+			assert.NotNil(t, symbols)
+			assert.Len(t, symbols, tt.expectedNumSymbols)
+
+			// If we expect results, check the first one to verify sorting
+			if tt.expectedNumSymbols > 0 {
+				assert.Equal(t, tt.expectedFirstSymbol, symbols[0].Symbol)
+			}
+		})
+	}
+}
+func TestGetTradesPerSymbol(t *testing.T) {
 	testCases := []struct {
 		name                   string
 		symbol                 string
@@ -148,6 +181,14 @@ func TestGetTradesPerSymbol(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
+			// given
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_, err := testTradeCollection.DeleteMany(ctx, bson.M{})
+			assert.NoError(t, err)
+			_, err = testTradeCollection.InsertMany(ctx, mockTradeData)
+			assert.NoError(t, err)
+
 			// ACT
 			trades, err := testRepo.GetTradesPerSymbol(context.Background(), tt.symbol, tt.limit, tt.before)
 
