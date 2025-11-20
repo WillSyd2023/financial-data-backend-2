@@ -218,6 +218,38 @@ The project includes a comprehensive test suite. To run all tests, you first nee
     go test ./... --cover
     ```
 
+## Demonstrating Horizontal Scalability
+
+This architecture is designed to scale horizontally. You can run multiple instances of the `go-processor` to handle higher data loads, and Kafka's consumer group will automatically distribute the work.
+
+#### 1. Prepare `docker-compose.yml`
+
+First, edit your `docker-compose.yml` file. To run multiple instances, you must **remove or comment out the `container_name` line** from the `go-processor` service.
+
+```yml
+  go-processor:
+    # container_name: go-processor  <-- Remove this line
+    build: ...
+```
+
+#### 2. Run with the `--scale` Command
+
+From your project root, start the application and scale the processor to three instances with this command:
+
+```bash
+docker compose up --build --scale go-processor=3
+```
+
+#### 3. Verify Load Balancing
+
+To see the processors working in parallel, open a new terminal and follow their logs:
+
+```bash
+docker compose logs -f go-processor
+```
+
+You will see logs from different instances (e.g., `go-processor-1`, `go-processor-2`) processing different Kafka partitions, confirming that the load is being shared.
+
 ## Future Improvements
 
 *   **Data Reconciliation Service**: Build a background cron job to periodically recalculate the `symbols` metadata from the raw `finnhub_trades` data, ensuring long-term consistency in the eventually consistent model.

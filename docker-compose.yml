@@ -35,7 +35,7 @@ services:
     volumes:
       - ./config/config.yml:/app/config/config.yml:ro 
   go-processor:
-    container_name: go-processor
+    # container_name: go-processor
     build:
       context: .
       dockerfile: ./cmd/go-processor/Dockerfile
