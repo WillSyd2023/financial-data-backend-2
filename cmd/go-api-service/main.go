@@ -83,8 +83,7 @@ func main() {
 	<-quit
 
 	log.Println("Shutdown Server ...")
-	timeoutEnv := os.Getenv("GRACEFUL_TIMEOUT")
-	timeout, err := strconv.Atoi(timeoutEnv)
+	timeout, err := strconv.Atoi(cfg.GracefulShutdown)
 	if err != nil {
 		log.Fatalf("Error: %s\n", err)
 	}
