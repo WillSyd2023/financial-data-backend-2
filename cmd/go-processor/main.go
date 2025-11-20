@@ -166,57 +166,41 @@ func main() {
 			continue
 		}
 
-		session, err := DB.StartSession()
+		// Insert trade records in batch
+		insertCtx, insertCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		_, err = tradeCollection.InsertMany(insertCtx, timeSeries)
+		insertCancel()
 		if err != nil {
-			log.Printf("FATAL: Failed to start MongoDB session: %v", err)
+			log.Printf("Failed to batch insert trade records into MongoDB: %v", err)
 			continue
-		}
-
-		// Define the transaction logic in a callback function
-		callback := func(sessionCtx mongo.SessionContext) (interface{}, error) {
-			// Insert trade records in batch
-			_, err = tradeCollection.InsertMany(sessionCtx, timeSeries)
-			if err != nil {
-				log.Printf("Failed to batch insert trade records into MongoDB: %v", err)
-				return nil, err
-			}
-
-			// Update symbol metadata
-			upsertOpts := options.Update().SetUpsert(true)
-			for symbol, count := range symbolTradeCounts {
-				filter := bson.M{"symbol": symbol}
-
-				// $inc increments the tradeCount by the number of trades in this message
-				// $set updates the last trade time (or sets it on insert)
-				update := bson.M{
-					"$inc":         bson.M{"tradeCount": count},
-					"$max":         bson.M{"lastTradeAt": latestTimestamps[symbol]},
-					"$setOnInsert": bson.M{"symbol": symbol},
-				}
-
-				// Perform the upsert operation for each symbol
-				_, err := symbolCollection.UpdateOne(sessionCtx, filter, update, upsertOpts)
-				if err != nil {
-					log.Printf("Failed to upsert symbol metadata for '%s': %v", symbol, err)
-					return nil, err
-				}
-			}
-
-			return nil, nil
-		}
-
-		// Timeout for MongoDB
-		opCtx, opCancel := context.WithTimeout(context.Background(), 10*time.Second)
-		_, err = session.WithTransaction(opCtx, callback)
-
-		opCancel()
-		session.EndSession(context.Background())
-
-		if err != nil {
-			log.Printf("MongoDB transaction failed (rollback was automatic): %v", err)
 		} else {
-			log.Printf("Successfully committed transaction for %d trades.", len(timeSeries))
-			log.Printf("Updated metadata for %d unique symbol(s).", len(symbolTradeCounts))
+			log.Printf("Successfully inserted %d trade records.", len(timeSeries))
 		}
+
+		// Update symbol metadata
+		updateCtx, updateCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		upsertOpts := options.Update().SetUpsert(true)
+		for symbol, count := range symbolTradeCounts {
+			filter := bson.M{"symbol": symbol}
+
+			// $inc increments the tradeCount by the number of trades in this message
+			// $set updates the last trade time (or sets it on insert)
+			update := bson.M{
+				"$inc":         bson.M{"tradeCount": count},
+				"$max":         bson.M{"lastTradeAt": latestTimestamps[symbol]},
+				"$setOnInsert": bson.M{"symbol": symbol},
+			}
+
+			// Perform the upsert operation for each symbol
+			_, err := symbolCollection.UpdateOne(updateCtx, filter, update, upsertOpts)
+			if err != nil {
+				// This is a non-critical failure. We log it but don't stop the system.
+				// This is a "eventual consistency" trade-off.
+				log.Printf("Failed to upsert symbol metadata for '%s': %v", symbol, err)
+			}
+		}
+		updateCancel()
+
+		log.Printf("Updated metadata for %d unique symbol(s).", len(symbolTradeCounts))
 	}
 }
