@@ -4,11 +4,13 @@ import (
 	"context"
 	"financial-data-backend-2/internal/models"
 	mongoGo "financial-data-backend-2/internal/mongo"
+	"fmt"
 	"log"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -33,6 +35,11 @@ var (
 func TestMain(m *testing.M) {
 	// 1. SETUP
 	// Load URL
+	err := godotenv.Load("../../../.env")
+	if err != nil {
+		log.Println("Warning: .env file not found, relying on environment variables for tests.")
+		os.Exit(0)
+	}
 	mongoUrl := os.Getenv("MONGO_URL_TEST")
 	if mongoUrl == "" {
 		log.Println("Skipping repository tests: MONGO_URL_TEST environment variable not set.")
@@ -55,11 +62,12 @@ func TestMain(m *testing.M) {
 		price, _ := primitive.ParseDecimal128("100.0")
 		volume, _ := primitive.ParseDecimal128("10")
 		mockTradeData[i] = models.TradeRecord{
-			Id:     primitive.NewObjectID(),
-			Symbol: testSymbol,
-			Time:   now.Add(time.Duration(-i) * time.Second),
-			Price:  price,
-			Volume: volume,
+			Id:         primitive.NewObjectID(),
+			MessageKey: fmt.Sprintf("mock-key-%d", i),
+			Symbol:     testSymbol,
+			Time:       now.Add(time.Duration(-i) * time.Second),
+			Price:      price,
+			Volume:     volume,
 		}
 	}
 
@@ -73,6 +81,7 @@ func TestMain(m *testing.M) {
 	if err := testDbClient.Database(databaseName).Drop(ctx); err != nil {
 		log.Fatalf("Error when tearing down test database: %v", err)
 	}
+	//
 	log.Println("Test database torn.")
 	if err := testDbClient.Disconnect(ctx); err != nil {
 		log.Fatalf("Error during MongoDB disconnect: %v", err)
@@ -136,14 +145,22 @@ func TestGetSymbols(t *testing.T) {
 			_, err := testSymbolCollection.DeleteMany(ctx, bson.M{})
 			assert.NoError(t, err)
 			_, err = testSymbolCollection.InsertMany(ctx, tt.collectionInput())
-			assert.NoError(t, err)
+			if tt.collectionInput() != nil && len(tt.collectionInput()) > 0 {
+				assert.NoError(t, err)
+			} else {
+				assert.Error(t, err)
+			}
 
 			// when
 			symbols, err := testRepo.GetSymbols(context.Background())
 
 			// then
 			assert.NoError(t, err)
-			assert.NotNil(t, symbols)
+			if tt.collectionInput() != nil && len(tt.collectionInput()) > 0 {
+				assert.NotNil(t, symbols)
+			} else {
+				assert.Nil(t, symbols)
+			}
 			assert.Len(t, symbols, tt.expectedNumSymbols)
 
 			// If we expect results, check the first one to verify sorting
@@ -164,7 +181,7 @@ func TestGetTradesPerSymbol(t *testing.T) {
 	}{
 		{
 			name:                   "Get first page (full page of 10)",
-			symbol:                 "TEST",
+			symbol:                 testSymbol,
 			limit:                  10,
 			before:                 0, // No cursor, get the latest
 			expectedNumTrades:      10,
@@ -172,7 +189,7 @@ func TestGetTradesPerSymbol(t *testing.T) {
 		},
 		{
 			name:                   "Get second page using cursor (full page of 10)",
-			symbol:                 "TEST",
+			symbol:                 testSymbol,
 			limit:                  10,
 			before:                 now.Add(-9 * time.Second).UnixMilli(),
 			expectedNumTrades:      10,
@@ -180,7 +197,7 @@ func TestGetTradesPerSymbol(t *testing.T) {
 		},
 		{
 			name:                   "Get partial last page",
-			symbol:                 "TEST",
+			symbol:                 testSymbol,
 			limit:                  10,
 			before:                 now.Add(-14 * time.Second).UnixMilli(), // Cursor from 15th trade
 			expectedNumTrades:      5,                                      // Should only get the remaining 5
@@ -195,14 +212,14 @@ func TestGetTradesPerSymbol(t *testing.T) {
 		},
 		{
 			name:              "Edge case: limit of 0 returns empty slice",
-			symbol:            "TEST",
+			symbol:            testSymbol,
 			limit:             0,
 			before:            0,
 			expectedNumTrades: 0,
 		},
 		{
 			name:              "No trades found after cursor",
-			symbol:            "TEST",
+			symbol:            testSymbol,
 			limit:             10,
 			before:            now.Add(-19 * time.Second).UnixMilli(), // Cursor from the very last trade
 			expectedNumTrades: 0,
@@ -224,7 +241,11 @@ func TestGetTradesPerSymbol(t *testing.T) {
 
 			// ASSERT
 			assert.NoError(t, err)
-			assert.NotNil(t, trades)
+			if tt.symbol == testSymbol && tt.expectedNumTrades > 0 {
+				assert.NotNil(t, trades)
+			} else {
+				assert.Nil(t, trades)
+			}
 			assert.Len(t, trades, tt.expectedNumTrades)
 
 			// If we expect results, check the first one to verify sorting

@@ -41,6 +41,11 @@ func (rp *Repo) GetSymbols(c context.Context) ([]models.SymbolDocument, error) {
 }
 
 func (r *Repo) GetTradesPerSymbol(ctx context.Context, symbol string, limit int, before int64) ([]models.TradeRecord, error) {
+	var trades []models.TradeRecord
+	if limit <= 0 {
+		return nil, nil
+	}
+
 	filter := bson.M{"symbol": symbol}
 
 	// If a 'before' cursor is provided, add it to the filter.
@@ -59,7 +64,6 @@ func (r *Repo) GetTradesPerSymbol(ctx context.Context, symbol string, limit int,
 	}
 	defer cursor.Close(ctx)
 
-	var trades []models.TradeRecord
 	if err = cursor.All(ctx, &trades); err != nil {
 		return nil, err
 	}
