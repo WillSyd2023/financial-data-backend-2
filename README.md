@@ -59,6 +59,8 @@ This project demonstrates several advanced, production-ready engineering concept
 *   **Concurrent-Safe Metadata Updates**: To avoid race conditions when scaling the processor, all metadata updates are performed within a single `UpdateOne` command. **MongoDB guarantees atomicity for operations that modify a single document.** By using atomic operators like `$inc` and `$max` together in one operation, we ensure that `tradeCount` and ``lastTradeAt`` are updated as a single, uninterruptible unit, making data more consistent without complex application-level locking.
     *   *Reference: [MongoDB Documentation on Atomicity](https://www.mongodb.com/docs/manual/core/write-operations-atomicity/)*
 
+*   **Graceful Shutdown for Data Integrity**: The stateful `go-processor` implements graceful shutdown. It catches the `SIGINT` or `SIGTERM` signal, allowing it to finish processing its in-flight Kafka message and persist the data before exiting. This prevents message re-processing on restart and ensures at-least-once delivery is handled cleanly.
+
 *   **Clean Architecture API**: The REST API is built following Clean Architecture principles, separating concerns into `Handler`, `Usecase (Service)`, and `Repository` layers. This makes the code organised, maintainable, and highly testable.
 
 *   **Robust API Design with Custom Middleware**: The API is protected by a chain of custom Gin middleware. A **request timeout middleware** actively races handler execution against a timer, protecting the server from slow downstream operations like MongoDB’s cloud database suddenly malfunctioning. A **centralised error middleware** catches all application-level errors and context cancellations, ensuring the API always returns a clean, predictable JSON error response.
@@ -193,6 +195,8 @@ mongodb:
   database_name: "financialDataDatabase"
   collection_name: "finnhub_trades"
   symbols_collection_name: "symbols"
+
+graceful_shutdown: 3 # for API service
 ```
 
 ### 2. Run the Application
