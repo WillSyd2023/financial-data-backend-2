@@ -42,10 +42,6 @@ graph TD
     D -- Persists Data --> E
     F -- Queries Data --> E
     G -- Makes HTTP Requests --> F
-
-    style A fill:#f9f,stroke:#333
-    style C fill:#fda,stroke:#333
-    style E fill:#aaf,stroke:#333
 ```
 
 ## Key Features & Technical Highlights
