@@ -8,11 +8,12 @@ import (
 
 // Config is the top-level struct that holds all configuration.
 type Config struct {
-	APIPort string        `yaml:"api_port"`
-	Finnhub FinnhubConfig `yaml:"finnhub"`
-	Kafka   KafkaConfig   `yaml:"kafka"`
-	MongoDB MongoConfig   `yaml:"mongodb"`
-	Symbols []string      `yaml:"subscribed_symbols"`
+	APIPort         string        `yaml:"api_port"`
+	Finnhub         FinnhubConfig `yaml:"finnhub"`
+	Kafka           KafkaConfig   `yaml:"kafka"`
+	MongoDB         MongoConfig   `yaml:"mongodb"`
+	Symbols         []string      `yaml:"subscribed_symbols"`
+	GracefulTimeout string        `yaml:"graceful_timeout"`
 }
 
 // FinnhubConfig holds the configuration for the Finnhub API.

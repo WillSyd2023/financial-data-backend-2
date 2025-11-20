@@ -10,6 +10,10 @@ import (
 	mongoGo "financial-data-backend-2/internal/mongo"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -63,11 +67,34 @@ func main() {
 	}
 
 	// Run server
-	srv := &http.Server{
+	server := &http.Server{
 		Addr:    ":" + cfg.APIPort,
 		Handler: r.Handler(),
 	}
-	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatalf("listen: %s\n", err)
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("listen: %s\n", err)
+		}
+	}()
+
+	// Wait for interrupt signal to gracefully shutdown the server with
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	log.Println("Shutdown Server ...")
+	timeoutEnv := os.Getenv("GRACEFUL_TIMEOUT")
+	timeout, err := strconv.Atoi(timeoutEnv)
+	if err != nil {
+		log.Fatalf("Error: %s\n", err)
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		log.Println("Server Shutdown Error:", err)
+	}
+
+	log.Printf("timeout of %d seconds.\n", timeout)
+	log.Println("Server exiting")
 }
