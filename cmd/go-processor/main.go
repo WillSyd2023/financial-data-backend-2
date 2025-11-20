@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"financial-data-backend-2/internal/config"
 	"financial-data-backend-2/internal/kafka"
 	"financial-data-backend-2/internal/models"
 	mongoGo "financial-data-backend-2/internal/mongo"
+	"fmt"
 	"log"
 	"strconv"
 	"time"
@@ -89,6 +91,19 @@ func main() {
 		log.Printf("Could not create unique index on symbols (may already exist): %v", err)
 	}
 
+	// Also ensure a unique index exists on the trade collection for message.
+	// This is a one-time setup.
+	_, err = tradeCollection.Indexes().CreateOne(
+		context.Background(),
+		mongo.IndexModel{
+			Keys:    bson.M{"message_key": 1},
+			Options: options.Index().SetUnique(true),
+		},
+	)
+	if err != nil {
+		log.Printf("Could not create unique index on message key (may already exist): %v", err)
+	}
+
 	// - The Read Loop
 	log.Println("Waiting for messages...")
 	for {
@@ -126,7 +141,7 @@ func main() {
 		timeSeries := make([]any, 0)
 		symbolTradeCounts := make(map[string]int64)
 		latestTimestamps := make(map[string]time.Time)
-		for _, trade := range finnMsg.Data {
+		for i, trade := range finnMsg.Data {
 			// time
 			t := time.UnixMilli(trade.Timestamp)
 
@@ -147,10 +162,12 @@ func main() {
 					vStr, trade.Symbol, err)
 				continue // Skip this tick if the volume is invalid
 			}
-
 			// put trade to batch
 			timeSeries = append(timeSeries, models.TradeRecord{
-				Id:     primitive.NewObjectID(),
+				Id: primitive.NewObjectID(),
+				// idempotency key to prevent redundant insertion of data from MQ
+				MessageKey: fmt.Sprintf("%s-%d-%d-%s-%d-%d", m.Topic, m.Partition, m.Offset,
+					trade.Symbol, trade.Timestamp, i),
 				Symbol: trade.Symbol,
 				Price:  p,
 				Time:   t,
@@ -171,8 +188,28 @@ func main() {
 		_, err = tradeCollection.InsertMany(insertCtx, timeSeries)
 		insertCancel()
 		if err != nil {
-			log.Printf("Failed to batch insert trade records into MongoDB: %v", err)
-			continue
+			// Check if the error is a duplicate key error. This requires checking the error code.
+			isDuplicateKeyError := false
+			var e mongo.BulkWriteException
+			if errors.As(err, &e) {
+				for _, we := range e.WriteErrors {
+					if we.Code == 11000 {
+						isDuplicateKeyError = true
+						break
+					}
+				}
+			}
+
+			if isDuplicateKeyError {
+				// This is a "good" error. It means we've successfully prevented duplicates.
+				// We'll log it and proceed to the metadata update, just in case the
+				// first attempt failed before it could update the metadata.
+				log.Print("Info: Blocked duplicate trade insertion for message")
+			} else {
+				// This is a "bad" error (DB down, etc.). We should not proceed.
+				log.Printf("CRITICAL: Failed to insert trade records: %v. Skipping metadata update.", err)
+				continue
+			}
 		} else {
 			log.Printf("Successfully inserted %d trade records.", len(timeSeries))
 		}
