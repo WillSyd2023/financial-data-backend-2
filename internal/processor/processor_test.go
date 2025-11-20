@@ -1,11 +1,21 @@
 package processor
 
 import (
+	"context"
 	"financial-data-backend-2/internal/models"
+	mongoGo "financial-data-backend-2/internal/mongo"
+	"log"
+	"os"
 	"testing"
+	"time"
 
+	"github.com/joho/godotenv"
 	kafkaGo "github.com/segmentio/kafka-go"
 	"github.com/stretchr/testify/assert"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func TestTransformMessage(t *testing.T) {
@@ -116,4 +126,100 @@ func TestTransformMessage(t *testing.T) {
 			}
 		})
 	}
+}
+
+var (
+	databaseName         string = "financialDataDatabaseTest"
+	tradesCollectionName string = "finnhub_trades"
+)
+
+func TestInsertMany_Idempotency(t *testing.T) {
+	/**
+	Tests that idempotency-key approach on go-processor main
+	via unique message key works as intended via demoing,
+	but not testing actual go-processor code.
+	**/
+	// --- ARRANGE ---
+	// 1. Setup MongoDB for use
+	err := godotenv.Load("../../.env")
+	if err != nil {
+		log.Println("Warning: .env file not found, relying on environment variables for tests.")
+		os.Exit(0)
+	}
+	mongoUrl := os.Getenv("MONGO_URL_TEST")
+	if mongoUrl == "" {
+		log.Println("Skipping repository tests: MONGO_URL_TEST environment variable not set.")
+		os.Exit(0)
+	}
+	testDbClient, err := mongoGo.ConnectDB(mongoUrl)
+	if err != nil {
+		log.Fatalf("Failed to connect to MongoDB: %v", err)
+	}
+	testTradeCollection := testDbClient.Database(databaseName).Collection(tradesCollectionName)
+
+	// 2. Define a predictable batch of data with deterministic keys
+	testTimestamp := time.Now().UTC()
+	price, _ := primitive.ParseDecimal128("100")
+	volume, _ := primitive.ParseDecimal128("10")
+
+	idempotentBatch := []interface{}{
+		models.TradeRecord{
+			Id:         primitive.NewObjectID(),
+			MessageKey: "test-topic-0-1-TEST-12345-0", // Manually created key
+			Symbol:     "TEST",
+			Price:      price,
+			Time:       testTimestamp,
+			Volume:     volume,
+		},
+		models.TradeRecord{
+			Id:         primitive.NewObjectID(),
+			MessageKey: "test-topic-0-1-TEST-12345-1", // Manually created key
+			Symbol:     "TEST",
+			Price:      price,
+			Time:       testTimestamp.Add(1 * time.Second),
+			Volume:     volume,
+		},
+	}
+
+	// 3. Ensure the test collection is in a clean state before we start.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err = testTradeCollection.Drop(ctx)
+	assert.NoError(t, err)
+
+	// Also ensure a unique index exists on the trade collection for message.
+	// This is a one-time setup.
+	_, err = testTradeCollection.Indexes().CreateOne(
+		context.Background(),
+		mongo.IndexModel{
+			Keys:    bson.M{"message_key": 1},
+			Options: options.Index().SetUnique(true),
+		},
+	)
+	assert.NoError(t, err)
+
+	// --- ACT 1: The first insert ---
+	_, err = testTradeCollection.InsertMany(ctx, idempotentBatch)
+
+	// --- ASSERT 1: The first insert must succeed ---
+	assert.NoError(t, err, "The first insert should succeed without any errors")
+
+	// Verify that the data is actually there
+	count, err := testTradeCollection.CountDocuments(ctx, bson.M{"symbol": "TEST"})
+	assert.NoError(t, err)
+	assert.Equal(t, int64(2), count, "There should be 2 documents in the collection after the first insert")
+
+	// --- ACT 2: The second insert (the idempotency test) ---
+	_, err = testTradeCollection.InsertMany(ctx, idempotentBatch)
+
+	// --- ASSERT 2: The second insert MUST fail with the correct error ---
+	assert.Error(t, err, "The second insert should fail")
+
+	// Check if the error is the specific DuplicateKeyError we expect.
+	assert.True(t, IsDuplicateKeyError(err), "The error should be a duplicate key error")
+
+	// The ultimate proof: Verify that no new data was written.
+	finalCount, err := testTradeCollection.CountDocuments(ctx, bson.M{"symbol": "TEST"})
+	assert.NoError(t, err)
+	assert.Equal(t, int64(2), finalCount, "The document count should still be 2 after the failed second insert")
 }

@@ -2,6 +2,7 @@ package processor
 
 import (
 	"encoding/json"
+	"errors"
 	"financial-data-backend-2/internal/models"
 	"fmt"
 	"log"
@@ -10,12 +11,25 @@ import (
 
 	kafkaGo "github.com/segmentio/kafka-go"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type ProcessedData struct {
 	TradeRecords      []interface{}
 	SymbolTradeCounts map[string]int64
 	LatestTimestamps  map[string]time.Time
+}
+
+func IsDuplicateKeyError(err error) bool {
+	var e mongo.BulkWriteException
+	if errors.As(err, &e) {
+		for _, we := range e.WriteErrors {
+			if we.Code == 11000 {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func TransformMessage(m kafkaGo.Message) (*ProcessedData, error) {

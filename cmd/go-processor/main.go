@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"financial-data-backend-2/internal/config"
 	"financial-data-backend-2/internal/kafka"
 	mongoGo "financial-data-backend-2/internal/mongo"
@@ -134,18 +133,7 @@ func main() {
 		insertCancel()
 		if err != nil {
 			// Check if the error is a duplicate key error. This requires checking the error code.
-			isDuplicateKeyError := false
-			var e mongo.BulkWriteException
-			if errors.As(err, &e) {
-				for _, we := range e.WriteErrors {
-					if we.Code == 11000 {
-						isDuplicateKeyError = true
-						break
-					}
-				}
-			}
-
-			if isDuplicateKeyError {
+			if processor.IsDuplicateKeyError(err) {
 				// This is a "good" error. It means we've successfully prevented duplicates.
 				// We'll log it and proceed to the metadata update, just in case the
 				// first attempt failed before it could update the metadata.
