@@ -95,6 +95,7 @@ func main() {
 		log.Println("Server Shutdown Error:", err)
 	}
 
+	<-ctx.Done()
 	log.Printf("timeout of %d seconds.\n", timeout)
 	log.Println("Server exiting")
 }
