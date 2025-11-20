@@ -81,7 +81,6 @@ func TestMain(m *testing.M) {
 	if err := testDbClient.Database(databaseName).Drop(ctx); err != nil {
 		log.Fatalf("Error when tearing down test database: %v", err)
 	}
-	//
 	log.Println("Test database torn.")
 	if err := testDbClient.Disconnect(ctx); err != nil {
 		log.Fatalf("Error during MongoDB disconnect: %v", err)
