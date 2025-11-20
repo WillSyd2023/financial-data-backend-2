@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/assert"
@@ -134,4 +135,45 @@ func TestMiddlewareError(t *testing.T) {
 			assert.Equal(t, tt.expectedBody, recorder.Body.String())
 		})
 	}
+}
+func TestTimeoutMiddleware(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	r := gin.New()
+
+	r.Use(Error())
+	r.Use(Timeout(50 * time.Millisecond))
+
+	// Create a handler that is deliberately slower than the timeout.
+	r.GET("/slow", func(c *gin.Context) {
+		// This handler will sleep for 100ms. The timeout is 50ms.
+		time.Sleep(100 * time.Millisecond)
+
+		// The timeout will fire while this handler is sleeping.
+		// After the sleep, we check if the context was cancelled.
+		// If it was, the middleware chain has already been aborted, and
+		// this response will never be written.
+		if c.Request.Context().Err() != nil {
+			return
+		}
+
+		// This should never be reached in a successful test.
+		c.JSON(http.StatusOK,
+			gin.H{
+				"message": "OK",
+				"error":   nil,
+				"data":    nil,
+			})
+	})
+
+	// Create a fake HTTP request and a response recorder.
+	req, _ := http.NewRequest(http.MethodGet, "/slow", nil)
+	w := httptest.NewRecorder()
+
+	// Act: Serve the HTTP request.
+	r.ServeHTTP(w, req)
+
+	// Assert: The Error middleware should have detected the timeout and written the correct response.
+	assert.Equal(t, http.StatusGatewayTimeout, w.Code)
+	assert.Equal(t, `{"success":false,"error":"request timed out","data":null}`, w.Body.String())
 }
