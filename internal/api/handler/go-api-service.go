@@ -4,6 +4,7 @@ import (
 	"financial-data-backend-2/internal/api/constant"
 	"financial-data-backend-2/internal/api/dto"
 	"financial-data-backend-2/internal/api/usecase"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -65,12 +66,16 @@ func (hd *Handler) GetTradesPerSymbol(ctx *gin.Context) {
 	// Get limit and offset
 	var limit int
 	limitStr := ctx.Query("limit")
+	log.Print(limitStr)
 	if limitStr == "" {
 		limit = constant.DefaultLimit
-	}
-	limit, err := strconv.Atoi(limitStr)
-	if err != nil || limit <= 0 {
-		limit = constant.DefaultLimit
+	} else {
+		parsedLimit, err := strconv.Atoi(limitStr)
+		if err != nil || parsedLimit <= 0 {
+			ctx.Error(constant.ErrInvalidLimit)
+			return
+		}
+		limit = parsedLimit
 	}
 
 	// Parse the 'before' cursor. It's a Unix millisecond timestamp.
@@ -80,10 +85,13 @@ func (hd *Handler) GetTradesPerSymbol(ctx *gin.Context) {
 	beforeStr := ctx.DefaultQuery("before", constant.DefaultCursorStr)
 	if beforeStr == "" {
 		before = constant.DefaultCursor
-	}
-	before, err = strconv.ParseInt(beforeStr, 10, 64)
-	if err != nil || before < 0 {
-		before = constant.DefaultCursor
+	} else {
+		parsedBefore, err := strconv.ParseInt(beforeStr, 10, 64)
+		if err != nil || parsedBefore < 0 {
+			ctx.Error(constant.ErrInvalidCursor)
+			return
+		}
+		before = parsedBefore
 	}
 
 	// usecase

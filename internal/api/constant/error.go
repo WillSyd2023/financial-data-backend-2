@@ -18,4 +18,10 @@ func (err CustomError) Error() string {
 var (
 	ErrNoSymbol = NewCError(http.StatusBadRequest,
 		"please provide symbol")
+
+	ErrInvalidLimit = NewCError(http.StatusBadRequest,
+		"invalid 'limit' query parameter: must be a positive integer")
+
+	ErrInvalidCursor = NewCError(http.StatusBadRequest,
+		"invalid 'before' query parameter: must be a non-negative integer (Unix millisecond timestamp)")
 )
