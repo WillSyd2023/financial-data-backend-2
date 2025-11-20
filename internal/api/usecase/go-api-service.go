@@ -6,6 +6,7 @@ import (
 	"financial-data-backend-2/internal/models"
 )
 
+//go:generate mockery --name UsecaseItf --case underscore --keeptree
 type UsecaseItf interface {
 	GetSymbols(context.Context) ([]models.SymbolDocument, error)
 	GetTradesPerSymbol(context.Context, string, int, int64) ([]models.TradeRecord, error)
