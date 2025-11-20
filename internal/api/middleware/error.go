@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"context"
 	"errors"
 	"financial-data-backend-2/internal/api/constant"
 	"financial-data-backend-2/internal/api/dto"
@@ -14,19 +13,6 @@ import (
 func Error() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Next()
-
-		ctxErr := c.Request.Context().Err()
-		if ctxErr != nil {
-			// Check if the context error is specifically a deadline exceeded.
-			if errors.Is(ctxErr, context.DeadlineExceeded) {
-				// If so, abort and write the Gateway Timeout response.
-				c.AbortWithStatusJSON(http.StatusGatewayTimeout, dto.Res{
-					Success: false,
-					Error:   "request timed out",
-				})
-				return
-			}
-		}
 
 		// Check if there is no error
 		if len(c.Errors) == 0 {
