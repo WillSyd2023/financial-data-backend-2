@@ -2,20 +2,16 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"financial-data-backend-2/internal/config"
 	"financial-data-backend-2/internal/kafka"
-	"financial-data-backend-2/internal/models"
 	mongoGo "financial-data-backend-2/internal/mongo"
-	"fmt"
+	"financial-data-backend-2/internal/processor"
 	"log"
-	"strconv"
 	"time"
 
 	kafkaGo "github.com/segmentio/kafka-go"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -118,70 +114,19 @@ func main() {
 			m.Topic, m.Partition, m.Offset)
 		log.Printf("Message Value: %s", string(m.Value))
 
-		// Unmarshal the raw JSON value from Kafka
-		var finnMsg models.FinnhubTradeMessage
-		if err := json.Unmarshal(m.Value, &finnMsg); err != nil {
-			log.Printf("Failed to unmarshal message from Kafka: %v", err)
-			log.Printf("Bad Message Value: %s", string(m.Value))
+		// Transform data
+		data, err := processor.TransformMessage(m)
+		if err != nil {
+			log.Printf("Failed to transform message: %v. Raw value: %s", err, string(m.Value))
 			continue
 		}
-		log.Printf("Unmarshalled Data: %+v", finnMsg)
-
-		// Check the message
-		if finnMsg.Type != "trade" {
-			log.Printf("Received non-trade message type: %s. Skipping.",
-				finnMsg.Type)
+		if data == nil { // Message was a ping, not a trade, or had no valid data
+			log.Println("Skipping message (not a valid trade).")
 			continue
 		}
-		if len(finnMsg.Data) == 0 {
-			continue
-		}
-
-		// Prepare data for insertion/updates
-		timeSeries := make([]any, 0)
-		symbolTradeCounts := make(map[string]int64)
-		latestTimestamps := make(map[string]time.Time)
-		for i, trade := range finnMsg.Data {
-			// time
-			t := time.UnixMilli(trade.Timestamp)
-
-			// price
-			pStr := strconv.FormatFloat(trade.Price, 'f', -1, 64)
-			p, err := primitive.ParseDecimal128(pStr)
-			if err != nil {
-				log.Printf("Could not convert price string '%s' for symbol '%s' to Decimal128: %v",
-					pStr, trade.Symbol, err)
-				continue // Skip this tick if the price is invalid
-			}
-
-			// volume
-			vStr := strconv.FormatFloat(trade.Volume, 'f', -1, 64)
-			v, err := primitive.ParseDecimal128(vStr)
-			if err != nil {
-				log.Printf("Could not convert volume string '%s' for symbol '%s' to Decimal128: %v",
-					vStr, trade.Symbol, err)
-				continue // Skip this tick if the volume is invalid
-			}
-			// put trade to batch
-			timeSeries = append(timeSeries, models.TradeRecord{
-				Id: primitive.NewObjectID(),
-				// idempotency key to prevent redundant insertion of data from MQ
-				MessageKey: fmt.Sprintf("%s-%d-%d-%s-%d-%d", m.Topic, m.Partition, m.Offset,
-					trade.Symbol, trade.Timestamp, i),
-				Symbol: trade.Symbol,
-				Price:  p,
-				Time:   t,
-				Volume: v,
-			})
-
-			symbolTradeCounts[trade.Symbol]++
-			if t.After(latestTimestamps[trade.Symbol]) {
-				latestTimestamps[trade.Symbol] = t
-			}
-		}
-		if len(timeSeries) == 0 {
-			continue
-		}
+		timeSeries := data.TradeRecords
+		symbolTradeCounts := data.SymbolTradeCounts
+		latestTimestamps := data.LatestTimestamps
 
 		// Insert trade records in batch
 		insertCtx, insertCancel := context.WithTimeout(context.Background(), 10*time.Second)
