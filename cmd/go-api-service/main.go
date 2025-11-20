@@ -45,7 +45,7 @@ func main() {
 	// Setup server and middlewares
 	r := gin.New()
 	r.Use(gin.Logger())
-	// r.Use(middleware.Error())
+	r.Use(middleware.Error())
 	r.Use(middleware.Timeout(10 * time.Second))
 
 	// Setup apps
