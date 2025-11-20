@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"errors"
 	"financial-data-backend-2/internal/config"
 	"financial-data-backend-2/internal/kafka"
 	mongoGo "financial-data-backend-2/internal/mongo"
 	"financial-data-backend-2/internal/processor"
 	"log"
+	"os/signal"
+	"syscall"
 	"time"
 
 	kafkaGo "github.com/segmentio/kafka-go"
@@ -99,12 +102,21 @@ func main() {
 		log.Printf("Could not create unique index on message key (may already exist): %v", err)
 	}
 
+	// Graceful shutdown setup
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	// - The Read Loop
 	log.Println("Waiting for messages...")
 	for {
 		// Read a message from Kafka
-		m, err := r.ReadMessage(context.Background())
+		m, err := r.ReadMessage(ctx)
 		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				log.Println("Context cancelled, shutting down processor.")
+				break
+			}
+
 			log.Printf("Error reading message: %v", err)
 			continue
 		}
@@ -173,4 +185,5 @@ func main() {
 
 		log.Printf("Updated metadata for %d unique symbol(s).", len(symbolTradeCounts))
 	}
+	log.Println("Cleanup finished. Processor exiting.")
 }
