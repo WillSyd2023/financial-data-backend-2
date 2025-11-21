@@ -4,6 +4,14 @@
 ![Docker](https://img.shields.io/badge/Docker-Powered-blue)
 
 An end-to-end, event-driven data platform built in Go. This system ingests live financial data from a WebSocket, streams it through a Kafka message bus, processes and stores it in MongoDB, and exposes it via a clean, well-tested REST API.
+
+## Live Demo
+
+The API service is deployed to AWS (EC2).
+
+*   **Base URL**: `http://13.238.200.10`
+*   **Status**: *Note: To conserve cloud resources, this instance is stopped when not in use. Please contact me to request a live demonstration.*
+
 ## System Architecture
 
 The project is a multi-microservice application, fully containerised with Docker, demonstrating a decoupled, scalable, and resilient architecture.
