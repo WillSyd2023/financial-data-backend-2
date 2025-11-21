@@ -2,7 +2,6 @@ package processor
 
 import (
 	"context"
-	"financial-data-backend-2/internal/config"
 	"financial-data-backend-2/internal/models"
 	mongoGo "financial-data-backend-2/internal/mongo"
 	"log"
@@ -152,12 +151,7 @@ func TestInsertMany_Idempotency(t *testing.T) {
 		log.Println("Skipping repository tests: MONGO_URL_TEST environment variable not set.")
 		os.Exit(0)
 	}
-	// Load Configuration
-	cfg, err := config.LoadConfig("config/config.yml")
-	if err != nil {
-		log.Fatalf("Error loading configuration: %v", err)
-	}
-	testDbClient, err := mongoGo.ConnectDB(mongoUrl, cfg.Timeouts.BackgroundOperation)
+	testDbClient, err := mongoGo.ConnectDB(mongoUrl, 15*time.Second)
 	if err != nil {
 		log.Fatalf("Failed to connect to MongoDB: %v", err)
 	}
