@@ -241,3 +241,5 @@ go.work.sum
 
 config/config.yml
 .DS_Store
+
+*.pem
