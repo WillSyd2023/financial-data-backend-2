@@ -141,15 +141,10 @@ func TestInsertMany_Idempotency(t *testing.T) {
 	**/
 	// --- ARRANGE ---
 	// 1. Setup MongoDB for use
-	err := godotenv.Load("../../.env")
-	if err != nil {
-		log.Println("Warning: .env file not found, relying on environment variables for tests.")
-		os.Exit(0)
-	}
+	_ = godotenv.Load("../../.env")
 	mongoUrl := os.Getenv("MONGO_URL_TEST")
 	if mongoUrl == "" {
-		log.Println("Skipping repository tests: MONGO_URL_TEST environment variable not set.")
-		os.Exit(0)
+		log.Fatal("FATAL: MONGO_URL_TEST is not set. Aborting repo integration tests.")
 	}
 	testDbClient, err := mongoGo.ConnectDB(mongoUrl, 15*time.Second)
 	if err != nil {

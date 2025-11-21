@@ -35,15 +35,10 @@ var (
 func TestMain(m *testing.M) {
 	// 1. SETUP
 	// Load URL
-	err := godotenv.Load("../../../.env")
-	if err != nil {
-		log.Println("Warning: .env file not found, relying on environment variables for tests.")
-		os.Exit(0)
-	}
+	_ = godotenv.Load("../../../.env")
 	mongoUrl := os.Getenv("MONGO_URL_TEST")
 	if mongoUrl == "" {
-		log.Println("Skipping repository tests: MONGO_URL_TEST environment variable not set.")
-		os.Exit(0)
+		log.Fatal("FATAL: MONGO_URL_TEST is not set. Aborting repo integration tests.")
 	}
 
 	// Setup MongoDB collections and repo
