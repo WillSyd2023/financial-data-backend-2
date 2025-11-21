@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	databaseName          string = "financialDataDatabaseTest"
+	databaseName          string = "financialDataRepoTest"
 	symbolsCollectionName string = "symbols"
 	tradesCollectionName  string = "finnhub_trades"
 	testSymbol            string = "TEST"

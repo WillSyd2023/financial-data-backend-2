@@ -129,7 +129,7 @@ func TestTransformMessage(t *testing.T) {
 }
 
 var (
-	databaseName         string = "financialDataDatabaseTest"
+	databaseName         string = "financialDataProcessorTest"
 	tradesCollectionName string = "finnhub_trades"
 )
 
