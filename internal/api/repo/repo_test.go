@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"financial-data-backend-2/internal/config"
 	"financial-data-backend-2/internal/models"
 	mongoGo "financial-data-backend-2/internal/mongo"
 	"fmt"
@@ -46,8 +47,14 @@ func TestMain(m *testing.M) {
 		os.Exit(0)
 	}
 
+	// Load Configuration
+	cfg, err := config.LoadConfig("config/config.yml")
+	if err != nil {
+		log.Fatalf("Error loading configuration: %v", err)
+	}
+
 	// Setup MongoDB collections and repo
-	testDbClient, err := mongoGo.ConnectDB(mongoUrl)
+	testDbClient, err := mongoGo.ConnectDB(mongoUrl, cfg.Timeouts.BackgroundOperation)
 	if err != nil {
 		log.Fatalf("Failed to connect to MongoDB: %v", err)
 	}

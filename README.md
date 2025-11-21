@@ -196,7 +196,13 @@ mongodb:
   collection_name: "finnhub_trades"
   symbols_collection_name: "symbols"
 
-graceful_shutdown: 3 # for API service
+timeouts:
+  # For user-facing API requests. Should be short.
+  api_request: "5s"
+  # For background network operations (Kafka writes, DB writes). Can be longer.
+  background_operation: "15s"
+  # For graceful shutdown of services.
+  shutdown: "5s"
 ```
 
 ### 2. Run the Application

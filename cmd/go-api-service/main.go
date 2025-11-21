@@ -12,9 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -27,12 +25,12 @@ func main() {
 	}
 
 	// - Setup MongoDB database
-	DB, err := mongoGo.ConnectDB(cfg.MongoDB.URL)
+	DB, err := mongoGo.ConnectDB(cfg.MongoDB.URL, cfg.Timeouts.BackgroundOperation)
 	if err != nil {
 		log.Fatalf("Failed to connect to MongoDB: %v", err)
 	}
 	defer func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeouts.BackgroundOperation)
 		defer cancel()
 		if err := DB.Disconnect(ctx); err != nil {
 			log.Fatalf("Error during MongoDB disconnect: %v", err)
@@ -50,7 +48,7 @@ func main() {
 	r := gin.New()
 	r.Use(gin.Logger())
 	r.Use(middleware.Error())
-	r.Use(middleware.Timeout(10 * time.Second))
+	r.Use(middleware.Timeout(cfg.Timeouts.APIRequest))
 
 	// Setup apps
 	rp := repo.NewRepo(sc, tc)
@@ -83,18 +81,13 @@ func main() {
 	<-quit
 
 	log.Println("Shutdown Server ...")
-	timeout, err := strconv.Atoi(cfg.GracefulShutdown)
-	if err != nil {
-		log.Fatalf("Error: %s\n", err)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeouts.Shutdown)
 	defer cancel()
 	if err := server.Shutdown(ctx); err != nil {
 		log.Println("Server Shutdown Error:", err)
 	}
 
 	<-ctx.Done()
-	log.Printf("timeout of %d seconds.\n", timeout)
+	log.Printf("timeout of %d seconds.\n", int(cfg.Timeouts.Shutdown)/1000_000_000)
 	log.Println("Server exiting")
 }

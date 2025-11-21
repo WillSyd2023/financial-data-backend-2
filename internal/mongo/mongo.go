@@ -9,8 +9,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func ConnectDB(mongoURL string) (*mongo.Client, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+func ConnectDB(mongoURL string, duration time.Duration) (*mongo.Client, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), duration)
 	defer cancel()
 
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoURL))

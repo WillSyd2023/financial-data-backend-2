@@ -57,12 +57,12 @@ func main() {
 	Consumer Group ID: finnhub-websocket-consumer-group`)
 
 	// - Setup MongoDB database
-	DB, err := mongoGo.ConnectDB(cfg.MongoDB.URL)
+	DB, err := mongoGo.ConnectDB(cfg.MongoDB.URL, cfg.Timeouts.BackgroundOperation)
 	if err != nil {
 		log.Fatalf("Failed to connect to MongoDB: %v", err)
 	}
 	defer func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeouts.BackgroundOperation)
 		defer cancel()
 		if err := DB.Disconnect(ctx); err != nil {
 			log.Fatalf("Error during MongoDB disconnect: %v", err)
@@ -140,7 +140,7 @@ func main() {
 		latestTimestamps := data.LatestTimestamps
 
 		// Insert trade records in batch
-		insertCtx, insertCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		insertCtx, insertCancel := context.WithTimeout(context.Background(), cfg.Timeouts.BackgroundOperation)
 		_, err = tradeCollection.InsertMany(insertCtx, timeSeries)
 		insertCancel()
 		if err != nil {
@@ -160,7 +160,7 @@ func main() {
 		}
 
 		// Update symbol metadata
-		updateCtx, updateCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		updateCtx, updateCancel := context.WithTimeout(context.Background(), cfg.Timeouts.BackgroundOperation)
 		upsertOpts := options.Update().SetUpsert(true)
 		for symbol, count := range symbolTradeCounts {
 			filter := bson.M{"symbol": symbol}
