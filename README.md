@@ -27,13 +27,13 @@ graph TD
         subgraph "Data Storage"
             E[MongoDB]
         end
-        subgraph "API Service"
-            F(Go REST API)
+        subgraph "Cloud API Service"
+            F(AWS REST API)
         end
     end
 
     subgraph Client
-        G[User / Frontend]
+        G[User / Frontend / Postman]
     end
 
     A -- Real-Time Trade Data --> B
@@ -46,32 +46,39 @@ graph TD
 
 ## Key Features & Technical Highlights
 
-This project demonstrates several advanced, production-ready engineering concepts:
+This project was architected to satisfy many Non-Functional Requirements (NFRs).
+### 1. Availability & Scalability
+*Designed to handle growth and maintain high availability.*
+*   **Decoupled & Resilient Architecture**: The Ingestion and Processing services are fully decoupled using **Apache Kafka**. This acts as a durable buffer, ensuring that if the database is slow or temporarily unavailable, no incoming real-time data is lost.
+*   **Horizontal Scalability via Consumer Groups**: The processing service is designed to be scaled out. Kafka's **consumer group** model guarantees that each message is delivered to exactly one processor instance, enabling safe, parallel processing of the data stream without duplication.
+*   **Hybrid Cloud Deployment (Cost & Performance)**: To optimise resource usage, the system employs a hybrid strategy. The memory-intensive **Data Pipeline** (Ingestor, Kafka, Processor) runs on local infrastructure but writes directly to a centralised **MongoDB Atlas** cloud database. The **API Service** is deployed to a lightweight **AWS EC2 instance**, connecting to that same cloud database. This decouples the heavy processing from the query layer, ensuring the API remains available 24/7 via the public internet, accessible from anywhere, regardless of the state of the local ingestion pipeline.
+### 2. Data Consistency & Integrity
+*Ensuring data is durable, accurate, and safe during failures.*
 
-*   **Decoupled & Scalable Architecture**: The Ingestion and Processing services are fully decoupled using **Apache Kafka** as a message bus. This provides two major benefits:
-    1.  **Resilience**: Kafka acts as a durable buffer, ensuring that if the database is slow or temporarily unavailable, no incoming real-time data is lost.
-    2.  **Horizontal Scalability**: The processing service can be scaled out by running multiple instances. Kafka's **consumer group** model guarantees that each message is delivered to exactly one processor, enabling safe, parallel processing of the data stream without duplication.
+*   **Deliberate Pivot to Eventual Consistency**: The initial design aimed for perfect atomicity using transactions. However, discovering that **MongoDB's Time Series engine does not support inserts within transactions** forced a deliberate architectural pivot. The system now prioritises the absolute durability of the raw trade data, updating aggregated metadata on a best-effort, eventually consistent basis.
+*   **Idempotent Processing for Crash Recovery**: To prevent data duplication if the processor crashes and re-reads a message, the system generates a **deterministic idempotency key** from Kafka metadata (`topic-partition-offset--symbol-timestamp-index`). MongoDB's unique index rejects duplicate writes, guaranteeing **exactly-once** persistence logic.
+*   **Graceful Shutdown**: The stateful `go-processor` catches `SIGINT` or `SIGTERM` signals. It finishes processing its in-flight Kafka message and commits the offset before exiting, ensuring **at-least-once** delivery is handled cleanly during deployments.
+*   **Concurrent-Safe Metadata Updates**: To support horizontal scaling, the system handles concurrent writes to the same symbol metadata.
+    1.   **`$inc`**: Used for the trade count to ensure every trade is counted, even if multiple processors update the same symbol simultaneously.
+    2.  **`$max`**: Used for the `lastTradeAt` timestamp. This solves the "out-of-order write" race condition, ensuring the timestamp only moves forward to a later time and never regresses, even if an older message is processed last.
+    3.   **Atomicity**: Because MongoDB guarantees atomicity for single-document updates, combining these into one operation guarantees concurrency safety.
+### 3. API Performance & Design
+*Optimising latency and developer experience.*
 
-*   **Deliberate Pivot to Eventual Consistency**: The initial design aimed for perfect atomicity using multi-document transactions. However, during implementation, it was discovered that **MongoDB's Time Series engine does not support inserts within transactions.** A deliberate architectural decision was made to pivot to an **eventually consistent** model, where we prioritise the absolute durability of the raw trade data while updating the aggregated metadata on a best-effort basis.
+*   **Cursor-Based Pagination**: To efficiently paginate high-frequency time-series data, the `/trades` endpoint avoids slow `limit/offset` queries. Instead, it implements **cursor-based pagination**, which offers two critical advantages:
+    1.  **Index-Optimised Performance**: By leveraging MongoDB's **Time Series index** on `symbol` (metadata field) and `time` (time field), the database allows for a fast "seek" to the correct position in the dataset.
+    2.  **Data Stability**: In a live system where new trades are constantly inserted at the top of the list, traditional pagination causes "page drift" (skipping or repeating records). Using a timestamp cursor ensures that historical pages remain stable and consistent for the client, regardless of incoming live traffic.
+*   **Robust Middleware Chain**: The API is protected by custom Gin middleware. A **Timeout Middleware** actively races handlers against a timer to prevent slow DB queries from exhausting server resources. A **Centralised Error Middleware** captures all failures (including timeouts) to ensure the API always returns a consistent, predictable JSON error response.
+*   **Clean Architecture**: The codebase follows Clean Architecture principles (`Handler` -> `Usecase` -> `Repository`), separating concerns to ensure the system is maintainable and easy to extend.
 
-*   **Idempotent Data Processing**: The Go Processor is designed to be idempotent. It generates a **deterministic key** from Kafka message metadata (`topic-partition-offset-symbol-timestamp-index`) for each trade. This allows MongoDB's unique index to automatically reject duplicate writes, guaranteeing that data is processed **exactly once**, even if a message is redelivered after a crash.
+### 4. DevOps & Quality Assurance
+*Ensuring reliability through automation.*
 
-*   **Concurrent-Safe Metadata Updates**: To avoid race conditions when scaling the processor, all metadata updates are performed within a single `UpdateOne` command. **MongoDB guarantees atomicity for operations that modify a single document.** By using atomic operators like `$inc` and `$max` together in one operation, we ensure that `tradeCount` and ``lastTradeAt`` are updated as a single, uninterruptible unit, making data more consistent without complex application-level locking.
-    *   *Reference: [MongoDB Documentation on Atomicity](https://www.mongodb.com/docs/manual/core/write-operations-atomicity/)*
-
-*   **Graceful Shutdown for Data Integrity**: The stateful `go-processor` implements graceful shutdown. It catches the `SIGINT` or `SIGTERM` signal, allowing it to finish processing its in-flight Kafka message and persist the data before exiting. This prevents message re-processing on restart and ensures at-least-once delivery is handled cleanly.
-
-*   **Clean Architecture API**: The REST API is built following Clean Architecture principles, separating concerns into `Handler`, `Usecase (Service)`, and `Repository` layers. This makes the code organised, maintainable, and highly testable.
-
-*   **Robust API Design with Custom Middleware**: The API is protected by a chain of custom Gin middleware. A **request timeout middleware** actively races handler execution against a timer, protecting the server from slow downstream operations like MongoDB’s cloud database suddenly malfunctioning. A **centralised error middleware** catches all application-level errors and context cancellations, ensuring the API always returns a clean, predictable JSON error response.
-
-*   **Cursor-Based Pagination for Time-Series Data**: To paginate time-series trade data, the `/trades` endpoint avoids traditional limit/offset. Instead, it implements **cursor-based pagination**. The API provides a `next_cursor` (the timestamp of the last item) in its response, which the client then uses to request the subsequent page of results. (If no cursor is provided, then we the database runs out of subsequent results.)
-
-
-*   **Comprehensive Testing Strategy**: The project is validated with a multi-layered testing approach, demonstrating a commitment to code quality and reliability:
-    *   **Unit Tests** for core business logic, achieving **100% statement coverage** on the API's Usecase layer and **82% coverage** on the Processor's critical data transformation logic.
-     *  **Unit and Integration Tests for the API's Request Layer**, validating the complete interaction between the Handler and Usecase and the Middleware chain. These tests achieved **96% coverage** on the middleware package and confirmed the system's resilience by verifying robust error handling and request timeout behavior.
-    *   **Integration Tests** for the Repository layer, achieving **82% coverage** by running against a real test database to verify MongoDB query behaviour. This includes a specific test to validate the **idempotency strategy**, proving that the unique `message_key` index successfully prevents duplicate data insertion on message re-delivery.
+*   **Automated CI Pipeline**: A **GitHub Actions** workflow serves as a strict quality gate, automatically running the full test suite on every push to `main`. This prevents regression and ensures that code works as intended on a neutral environment (as opposed to just local environment.)
+*   **Comprehensive Testing Strategy**: The project is validated with a multi-layered strategy:
+    1.  **Unit Tests**: 100% coverage on API business logic (Usecase) and 82% on Processor transformation logic.
+    2.  **Request Layer Integration**: Validates the full interaction chain between Middleware, Handler and Usecase (96% middleware coverage).
+    3.  **Repository Integration**: Runs against a **live MongoDB test database** to verify query behaviour and validate the **idempotency strategy** (82% repository coverage).
 
 ## Tech Stack
 
@@ -82,7 +89,8 @@ This project demonstrates several advanced, production-ready engineering concept
 | **API**       | Gin (Web Framework)                                    |
 | **Database**  | MongoDB (with Time Series Collections)                 |
 | **Testing**   | Go Standard Library, `testify`, `mockery`              |
-| **DevOps**    | Docker, Docker Compose                                 |
+| **CI/CD**     | GitHub Actions (Automated Testing)                     |
+| **Infrastructure** | Docker, Docker Compose, AWS (EC2)                 |
 
 ## API Endpoints
 
@@ -228,6 +236,35 @@ The project includes a comprehensive test suite. To run all tests, you first nee
     go test ./... --cover
     ```
 
+## Production Deployment (AWS)
+
+The API service is designed to be deployed independently to a cloud provider. Here is the procedure for deploying the API to an AWS EC2 instance (Ubuntu):
+
+1.  **Provision Infrastructure**: Launch a `t2.micro` instance and configure the Security Group to allow HTTP traffic on Port 80 (`0.0.0.0/0`).
+2. 
+```ssh -i "financial-data-backend-2.pem" ubuntu@<NEW_IP_ADDRESS>```
+3. 
+```bash
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+
+# --- Install Docker ---
+sudo apt-get update -y
+sudo apt-get install -y docker.io docker-compose
+```
+4.  **Deploy Code**: Copy the project source code to the server using `scp`.
+5.  **Launch Service** (`ssh` first): 
+```bash
+# Go into the folder you just uploaded
+cd ~/app
+
+# Run using the production file
+# 'sudo' is required here. '-d' runs it in background.
+sudo docker-compose -f docker-compose.prod.yml up --build -d
+```
+
 ## Demonstrating Horizontal Scalability
 
 This architecture is designed to scale horizontally. You can run multiple instances of the `go-processor` to handle higher data loads, and Kafka's consumer group will automatically distribute the work.
@@ -261,6 +298,6 @@ docker compose logs -f go-processor
 You will see logs from different instances (e.g., `go-processor-1`, `go-processor-2`) processing different Kafka partitions, confirming that the load is being shared.
 
 ## Future Improvements
-
+*   **Automated CD Pipeline**: Extend the GitHub Actions workflow to implement full Continuous Deployment, to AWS.
 *   **Data Reconciliation Service**: Build a background cron job to periodically recalculate the `symbols` metadata from the raw `finnhub_trades` data, ensuring long-term consistency in the eventually consistent model.
 
