@@ -9,8 +9,7 @@ An end-to-end, event-driven data platform built in Go. This system ingests live 
 
 The API service is deployed to AWS (EC2).
 
-*   **Base URL**: `http://13.238.200.10`
-*   **Status**: *Note: To conserve cloud resources, this instance is stopped when not in use. Please contact me to request a live demonstration.*
+*   **Status**: *Note: To conserve cloud resources, this instance is stopped when not in use. Please contact me to request a live demonstration and IP address.*
 
 ## System Architecture
 
@@ -250,7 +249,7 @@ The API service is designed to be deployed independently to a cloud provider. He
 
 1.  **Provision Infrastructure**: Launch a `t2.micro` instance and configure the Security Group to allow HTTP traffic on Port 80 (`0.0.0.0/0`).
 2. 
-```ssh -i "financial-data-backend-2.pem" ubuntu@<NEW_IP_ADDRESS>```
+```ssh -i "...pem" ubuntu@<NEW_IP_ADDRESS>```
 3. 
 ```bash
 sudo fallocate -l 2G /swapfile
