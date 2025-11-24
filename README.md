@@ -265,7 +265,14 @@ sudo swapon /swapfile
 sudo apt-get update -y
 sudo apt-get install -y docker.io docker-compose
 ```
-4.  **Deploy Code**: Copy the project source code to the server using `scp`.
+4.  **Deploy Code**:
+
+Go to the folder of the source code with your PEM file.
+Copy the project source code to the server using:
+
+```bash
+rsync -avz -e "ssh -i ...pem" --exclude '...pem' --exclude 'node_modules' --exclude '.git' . ubuntu@<NEW_IP_ADDRESS>:~/app
+```
 5.  **Launch Service** (`ssh` first): 
 ```bash
 # Go into the folder you just uploaded
