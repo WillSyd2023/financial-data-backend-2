@@ -247,7 +247,7 @@ The project includes a comprehensive test suite. To run all tests, you first nee
 
 The API service is designed to be deployed independently to a cloud provider. Here is the procedure for deploying the API to an AWS EC2 instance (Ubuntu):
 
-1.  **Provision Infrastructure**: Launch a `t2.micro` instance and configure the Security Group to allow HTTP traffic on Port 80 (`0.0.0.0/0`).
+1.  **Provision Infrastructure**: Launch a `t3.micro` instance and configure the Security Group to allow HTTP traffic on Port 80 (`0.0.0.0/0`).
 2. 
 ```ssh -i "...pem" ubuntu@<NEW_IP_ADDRESS>```
 3. 
