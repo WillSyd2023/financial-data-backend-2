@@ -249,7 +249,11 @@ The API service is designed to be deployed independently to a cloud provider. He
 
 1.  **Provision Infrastructure**: Launch a `t3.micro` instance and configure the Security Group to allow HTTP traffic on Port 80 (`0.0.0.0/0`).
 2. 
-```ssh -i "...pem" ubuntu@<NEW_IP_ADDRESS>```
+```bash
+chmod 400 ...pem
+
+ssh -i "...pem" ubuntu@<NEW_IP_ADDRESS>
+```
 3. 
 ```bash
 sudo fallocate -l 2G /swapfile
