@@ -244,44 +244,129 @@ The project includes a comprehensive test suite. To run all tests, you first nee
     ```
 
 ## Production Deployment (AWS)
+The API service is designed to be deployed to an AWS EC2 instance. 
 
-The API service is designed to be deployed independently to a cloud provider. Here is the procedure for deploying the API to an AWS EC2 instance (Ubuntu):
+**Note on t3.micro:**  
+Currently, we cannot compile the Go binary on the server itself (it will crash). Instead, we **build the Docker image locally**, push it to a registry (Docker Hub), and simply pull/run it on the server.
 
-1.  **Provision Infrastructure**: Launch a `t3.micro` instance and configure the Security Group to allow HTTP traffic on Port 80 (`0.0.0.0/0`).
-2. 
+### Prerequisites
+1.  **Docker Hub Account.**
+2.  **Compose File:** Update your `docker-compose.prod.yml` to use `image:` instead of `build:`:
+    ```yaml
+    services:
+      go-api-service:
+        image: <YOUR_DOCKERHUB_USERNAME>/go-api-service:latest
+        # build: ... (Remove build section)
+    ```
+
+---
+
+### 1. Build and Push (Local Machine)
+Run these commands from your project root:
+
+```bash
+# 1. Build the image
+# Replace <YOUR_USER> with your Docker Hub username
+docker build --platform linux/amd64 -t <YOUR_USER>/go-api-service:latest -f cmd/go-api-service/Dockerfile .
+
+# 2. Push image to Docker Hub
+docker push <YOUR_USER>/go-api-service:latest
+```
+
+### 2. Provision Infrastructure (AWS)
+1.  Launch a `t3.micro` instance (Ubuntu).
+2.  Configure **Security Group** (Inbound Rules):
+    *   **SSH:** Your IP Address.
+    *   **HTTP:** `0.0.0.0/0`.
+3.  Download your PEM key (e.g., `...pem`).
+
+### 3. Server Setup (Remote)
+Connect to the instance and set up the environment.
+
 ```bash
 chmod 400 ...pem
 
+# SSH into server
 ssh -i "...pem" ubuntu@<NEW_IP_ADDRESS>
 ```
-3. 
+
+Once inside the server, run the following to install Docker:
+
 ```bash
 sudo fallocate -l 2G /swapfile
 sudo chmod 600 /swapfile
 sudo mkswap /swapfile
 sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
-# --- Install Docker ---
+# --- 2. Install Docker & Docker Compose ---
 sudo apt-get update -y
 sudo apt-get install -y docker.io docker-compose
 ```
-4.  **Deploy Code**:
 
-Go to the folder of the source code with your PEM file.
-Copy the project source code to the server using:
+---
+
+### 4. Deploy Configuration (Local Machine)
+Instead of copying the source code, we only copy the **Compose file** and the **Config file**. Run this from your local computer:
 
 ```bash
-rsync -avz -e "ssh -i ...pem" --exclude '...pem' --exclude 'node_modules' --exclude '.git' . ubuntu@<NEW_IP_ADDRESS>:~/app
+# 1. Create the application directory on the server
+ssh -i "...pem" ubuntu@<NEW_IP_ADDRESS> "mkdir -p ~/app/config"
+
+# 2. Upload the Production Compose file
+scp -i "...pem" docker-compose.prod.yml ubuntu@<NEW_IP_ADDRESS>:~/app/docker-compose.yml
+
+# 3. Upload the Config file
+scp -i "...pem" config/config.yml ubuntu@<NEW_IP_ADDRESS>:~/app/config/config.yml
 ```
-5.  **Launch Service** (`ssh` first): 
+
+---
+
+### 5. Launch Service (Remote)
+Connect back to the server to start the application.
+
 ```bash
-# Go into the folder you just uploaded
+ssh -i "...pem" ubuntu@<NEW_IP_ADDRESS>
+
+# Navigate to app folder
 cd ~/app
 
-# Run using the production file
-# 'sudo' is required here. '-d' runs it in background.
-sudo docker-compose -f docker-compose.prod.yml up --build -d
+# (Optional) Login
+# sudo docker login
+
+# Run the service
+# -d: Detached mode (background)
+# Note: We do NOT use '--build' here
+sudo docker-compose up -d
 ```
+#### Critical: Verify Database Connection
+After starting the service, you **must** check the logs to ensure the EC2 instance can connect to MongoDB Atlas. Atlas blocks unknown IPs by default.
+
+1.  **Check the logs:**
+    ```bash
+    sudo docker logs -f go-api-service
+    ```
+
+2.  **If you see errors** like `Failed to connect to MongoDB:`:
+    This likely means MongoDB Atlas is blocking your EC2 IP.
+
+3.  **Get your EC2 IP Address:**
+    Run this command in the terminal:
+    ```bash
+    curl ifconfig.me
+    ```
+
+4.  **Whitelist in MongoDB Atlas:**
+    *   Log in to [MongoDB Atlas](https://cloud.mongodb.com/).
+    *   Go to **Security** $\rightarrow$ **Database & Network Access**.
+    *   Click **Add IP Address**.
+    *   Paste the IP from step 3 and confirm.
+
+5.  **Restart the Service:**
+    Once the IP is active in Atlas, restart the container to reconnect:
+    ```bash
+    sudo docker restart go-api-service
+    ```
 
 ## Demonstrating Horizontal Scalability
 

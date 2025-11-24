@@ -2,9 +2,7 @@ version: '3.8'
 services:
   go-api-service:
     container_name: go-api-service
-    build:
-      context: .
-      dockerfile: ./cmd/go-api-service/Dockerfile
+    image: wi1123/go-api-service:latest
     ports:
       - "80:8000"
     volumes:
