@@ -6,7 +6,7 @@
 An end-to-end, event-driven data platform built in Go. This system ingests live financial data from a WebSocket, streams it through a Kafka message bus, processes and stores it in MongoDB, and exposes it via a clean, well-tested REST API.
 
 ## Live Demo
-**Base URL:** [http://3.26.92.41/api/v1/symbols](http://3.26.92.41/api/v1/symbols)
+**Base URL:** [http://3.26.92.41/api/v1/trades/AAPL](http://3.26.92.41/api/v1/trades/AAPL)
 * (Deployed on AWS EC2. Returns live JSON data from the cloud database.)
 * See the [API Endpoints](#api-endpoints) section below for full documentation on how to filter and paginate trades.
 
