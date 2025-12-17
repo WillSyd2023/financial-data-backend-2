@@ -292,10 +292,14 @@ ssh -i "...pem" ubuntu@<NEW_IP_ADDRESS>
 Once inside the server, run the following to install Docker:
 
 ```bash
+# add 2G of swap space
 sudo fallocate -l 2G /swapfile
 sudo chmod 600 /swapfile
 sudo mkswap /swapfile
 sudo swapon /swapfile
+
+# Make swap file permanent (but backup fstab first)
+sudo cp /etc/fstab /etc/fstab.bak
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
 # --- 2. Install Docker & Docker Compose ---
