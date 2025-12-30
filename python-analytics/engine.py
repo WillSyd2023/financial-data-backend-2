@@ -18,6 +18,7 @@ class MarketMetrics:
         self.cum_vol = 0
         
     def update(self, data):
+        '''Calculate new "rolling volume-weight average price"'''
         pv = {'p': data['p'], 'v': data['v']}
         if len(self.pvs) == self.window_size:
             prev = self.pvs.popleft()
@@ -36,6 +37,7 @@ class AnalyticsEngine:
         self.metrics = defaultdict(lambda: MarketMetrics())
 
     async def handle_client(self, reader, writer):
+        '''TCP client handler callback function'''
         addr = writer.get_extra_info('peername')
         print(f'New Client Connection: {addr}')
         self.clients.add(writer)
@@ -53,6 +55,7 @@ class AnalyticsEngine:
             await writer.wait_closed()
 
     async def run(self):
+        '''The actually start of the engine's operation'''
         # Load config, but just quit if fail
         try:
             with open('../config/config.yml', 'r', encoding='utf-8') as f:
