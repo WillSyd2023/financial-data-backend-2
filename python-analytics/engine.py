@@ -3,7 +3,7 @@ import asyncio
 import sys
 import logging
 import yaml
-from aiokafka import AIOKafkaConsumer
+from aiokafka import AIOKafkaConsumer, errors
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
@@ -20,12 +20,29 @@ class AnalyticsEngine:
             logging.critical('Failed to load config: %s', exc)
             sys.exit(1)
 
-        # Setup Kafka Consumer
+        # Setup Kafka Consumer, then wait for Kafka to be ready
         consumer = AIOKafkaConsumer(
             config['kafka']['topic'],
             bootstrap_servers=config['kafka']['broker_url'],
             group_id='analytics-engine-group'
         )
+        while True:
+            try:
+                await consumer.start()
+                break
+            except errors.KafkaConnectionError:
+                logging.warning('Kafka not ready yet. Retrying in 2 seconds...')
+                await asyncio.sleep(2)
+        print('''Kafka reader configured successfully. 
+	            Consumer Group ID: analytics-engine-group''')
+
+        try:
+            async for msg in consumer:
+                print('Message received | Topic: %s | Partition: %d | Offset: %d',
+			        msg.topic, msg.partition, msg.offset)
+                print('Message value:', msg.value)
+        finally:
+            await consumer.stop()
 
 if __name__ == '__main__':
     engine = AnalyticsEngine()
