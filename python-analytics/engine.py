@@ -18,7 +18,7 @@ class MarketMetrics:
         self.cum_vol = 0
         
     def update(self, data):
-        pv = {'p': data.p, 'v': data.v}
+        pv = {'p': data['p'], 'v': data['v']}
         if len(self.pvs) == self.window_size:
             prev = self.pvs.popleft()
             self.cum_pv -= prev['p'] * prev['v']
@@ -65,6 +65,8 @@ class AnalyticsEngine:
                 value = json.loads(msg.value.decode('utf-8'))
                 print('Message value:', value)
 
+                for data in value['data']:
+                    self.metrics[data['s']].update(data)
 
         finally:
             await consumer.stop()
