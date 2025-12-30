@@ -52,3 +52,14 @@ services:
       - "8000:8000"
     volumes:
       - ./config/config.yml:/app/config/config.yml:ro 
+  python-analytics-engine:
+    container_name: python-analytics-engine
+    build:
+      context: ./python-analytics
+      dockerfile: ./Dockerfile
+    depends_on:
+      - kafka
+    volumes:
+      - ./config/config.yml:/app/config/config.yml:ro
+    environment:
+      - PYTHONUNBUFFERED=1 
