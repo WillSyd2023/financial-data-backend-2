@@ -9,12 +9,13 @@ import (
 
 // Config is the top-level struct that holds all configuration.
 type Config struct {
-	APIPort  string        `yaml:"api_port"`
-	Finnhub  FinnhubConfig `yaml:"finnhub"`
-	Kafka    KafkaConfig   `yaml:"kafka"`
-	MongoDB  MongoConfig   `yaml:"mongodb"`
-	Symbols  []string      `yaml:"subscribed_symbols"`
-	Timeouts TimeoutConfig `yaml:"timeouts"`
+	APIPort   string          `yaml:"api_port"`
+	Finnhub   FinnhubConfig   `yaml:"finnhub"`
+	Kafka     KafkaConfig     `yaml:"kafka"`
+	MongoDB   MongoConfig     `yaml:"mongodb"`
+	Symbols   []string        `yaml:"subscribed_symbols"`
+	Timeouts  TimeoutConfig   `yaml:"timeouts"`
+	Analytics AnalyticsConfig `yaml:"analytics_engine"`
 }
 
 // FinnhubConfig holds the configuration for the Finnhub API.
@@ -36,10 +37,18 @@ type MongoConfig struct {
 	SymbolsCollectionName string `yaml:"symbols_collection_name"`
 }
 
+// Timeout limits for various operations.
 type TimeoutConfig struct {
 	APIRequest          time.Duration `yaml:"api_request"`
 	BackgroundOperation time.Duration `yaml:"background_operation"`
 	Shutdown            time.Duration `yaml:"shutdown"`
+}
+
+// Configuration for Python analytics server.
+// Not very relevant for the Go services.
+type AnalyticsConfig struct {
+	TCPHost string `yaml:"tcp_host"`
+	TCPPort string `yaml:"tcp_port"`
 }
 
 // LoadConfig reads the configuration file from the given path and
