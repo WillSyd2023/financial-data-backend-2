@@ -3,7 +3,7 @@ import asyncio
 import sys
 import logging
 import json
-from collections import deque
+from collections import deque, defaultdict
 import yaml
 from aiokafka import AIOKafkaConsumer, errors
 
@@ -13,20 +13,27 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 class MarketMetrics:
     def __init__(self, window_size=50):
         self.window_size = window_size
-        self.prices_and_volumes = deque()
-        self.cum_price_volume = 0.0
-        self.cum_volume = 0.0
+        self.pvs = deque()
+        self.cum_pv = 0.0
+        self.cum_vol = 0
         
-    def update(self, price):
-        pass
+    def update(self, data):
+        pv = {'p': data.p, 'v': data.v}
+        if len(self.pvs) == self.window_size:
+            prev = self.pvs.popleft()
+            self.cum_pv -= prev['p'] * prev['v']
+            self.cum_vol -= prev['v']
+        self.pvs.append(pv)
+        self.cum_pv += pv['p'] * pv['v']
+        self.cum_vol += pv['v']
 
 class AnalyticsEngine:
     def __init__(self):
         # Map: Symbol -> MarketMetrics
-        self.metrics = {}
+        self.metrics = defaultdict(MarketMetrics())
 
     async def run(self):
-        # Load config, but just if fail
+        # Load config, but just quit if fail
         try:
             with open('../config/config.yml', 'r', encoding='utf-8') as f:
                 config = yaml.safe_load(f)
@@ -47,8 +54,8 @@ class AnalyticsEngine:
             except errors.KafkaConnectionError:
                 logging.warning('Kafka not ready yet. Retrying in 2 seconds...')
                 await asyncio.sleep(2)
-        print('''Kafka reader configured successfully. 
-	            Consumer Group ID: analytics-engine-group''')
+        print(
+        'Kafka reader configured successfully. Consumer Group ID: analytics-engine-group')
 
         try:
             async for msg in consumer:
@@ -58,7 +65,7 @@ class AnalyticsEngine:
                 value = json.loads(msg.value.decode('utf-8'))
                 print('Message value:', value)
 
-                
+
         finally:
             await consumer.stop()
 
