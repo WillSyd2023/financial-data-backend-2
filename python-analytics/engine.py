@@ -29,8 +29,28 @@ class MarketMetrics:
 
 class AnalyticsEngine:
     def __init__(self):
+        # Set of active TCP writers
+        self.clients = set()
+
         # Map: Symbol -> MarketMetrics
         self.metrics = defaultdict(lambda: MarketMetrics())
+
+    async def handle_client(self, reader, writer):
+        addr = writer.get_extra_info('peername')
+        print(f'New Client Connection: {addr}')
+        self.clients.add(writer)
+        try:
+            while True:
+                data = await reader.read()
+                if not data:
+                    break
+        except asyncio.CancelledError:
+            pass
+        finally:
+            print(f'Client Disconnected: {addr}')
+            self.clients.discard(writer)
+            writer.close()
+            await writer.wait_closed()
 
     async def run(self):
         # Load config, but just quit if fail
@@ -40,6 +60,12 @@ class AnalyticsEngine:
         except yaml.YAMLError as exc:
             logging.critical('Failed to load config: %s', exc)
             sys.exit(1)
+
+        # Start TCP Server
+        host = config['analytics_engine']['tcp_host']
+        port = config['analytics_engine']['tcp_port']
+        await asyncio.start_server(self.handle_client, host, port)
+        print(f'TCP Server listening on port {port}')
 
         # Setup Kafka Consumer, then wait for Kafka to be ready
         consumer = AIOKafkaConsumer(
