@@ -2,14 +2,28 @@
 import asyncio
 import sys
 import logging
+import json
+from collections import deque
 import yaml
 from aiokafka import AIOKafkaConsumer, errors
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
+# O(1) Analytics Logic
+class MarketMetrics:
+    def __init__(self, window_size=50):
+        self.window_size = window_size
+        self.prices_and_volumes = deque()
+        self.cum_price_volume = 0.0
+        self.cum_volume = 0.0
+        
+    def update(self, price):
+        pass
+
 class AnalyticsEngine:
     def __init__(self):
-        pass
+        # Map: Symbol -> MarketMetrics
+        self.metrics = {}
 
     async def run(self):
         # Load config, but just if fail
@@ -40,7 +54,11 @@ class AnalyticsEngine:
             async for msg in consumer:
                 print('Message received | Topic: %s | Partition: %d | Offset: %d',
 			        msg.topic, msg.partition, msg.offset)
-                print('Message value:', msg.value)
+
+                value = json.loads(msg.value.decode('utf-8'))
+                print('Message value:', value)
+
+                
         finally:
             await consumer.stop()
 
