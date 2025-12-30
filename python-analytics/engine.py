@@ -30,7 +30,7 @@ class MarketMetrics:
 class AnalyticsEngine:
     def __init__(self):
         # Map: Symbol -> MarketMetrics
-        self.metrics = defaultdict(MarketMetrics())
+        self.metrics = defaultdict(lambda: MarketMetrics())
 
     async def run(self):
         # Load config, but just quit if fail
