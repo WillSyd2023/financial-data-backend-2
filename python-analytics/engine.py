@@ -27,6 +27,9 @@ class MarketMetrics:
         self.pvs.append(pv)
         self.cum_pv += pv['p'] * pv['v']
         self.cum_vol += pv['v']
+        if self.cum_vol == 0:
+            return None
+        return self.cum_pv/self.cum_vol
 
 class AnalyticsEngine:
     def __init__(self):
@@ -35,6 +38,27 @@ class AnalyticsEngine:
 
         # Map: Symbol -> MarketMetrics
         self.metrics = defaultdict(lambda: MarketMetrics())
+
+    async def send(self, data, w):
+        '''Broadcast most-recently-updated symbol information to a single client'''
+        try:
+            w.write(data)
+            await w.drain()
+        except:
+            pass
+
+
+    async def broadcast(self, time, symbol, price, vwap):
+        '''Broadcast most-recently-updated symbol information to clients'''
+        data = (json.dumps({
+            'time': time,
+            'symbol': symbol,
+            'price': price,
+            'vwap': vwap,
+        }) + '\n').encode('utf-8')
+
+        if self.clients:
+            await asyncio.gather(*(self.send(data, w) for w in list(self.clients)))
 
     async def handle_client(self, reader, writer):
         '''TCP client handler callback function'''
@@ -78,7 +102,7 @@ class AnalyticsEngine:
         )
         while True:
             try:
-                await consumer.start()
+                await consumer.start(1024)
                 break
             except errors.KafkaConnectionError:
                 logging.warning('Kafka not ready yet. Retrying in 2 seconds...')
@@ -88,15 +112,19 @@ class AnalyticsEngine:
 
         try:
             async for msg in consumer:
-                print('Message received | Topic: %s | Partition: %d | Offset: %d',
-			        msg.topic, msg.partition, msg.offset)
+                try:
+                    print('Message received | Topic: %s | Partition: %d | Offset: %d',
+                        msg.topic, msg.partition, msg.offset)
 
-                value = json.loads(msg.value.decode('utf-8'))
-                print('Message value:', value)
+                    value = json.loads(msg.value.decode('utf-8'))
+                    print('Message value:', value)
 
-                for data in value['data']:
-                    self.metrics[data['s']].update(data)
-
+                    for data in value['data']:
+                        vwap = self.metrics[data['s']].update(data)
+                        await self.broadcast(data['t'], data['s'], data['p'], vwap)
+                        print(f"Processed {data['s']}: ${data['p']} at time {data['t']} | VWAP: ${vwap}")
+                except Exception as e:
+                    print(f'Error processing message: {e}')
         finally:
             await consumer.stop()
 
