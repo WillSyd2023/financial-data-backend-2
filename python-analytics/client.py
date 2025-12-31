@@ -4,19 +4,21 @@ import json
 async def simple_client():
     addr = 'Unknown'
     try:
-        reader, writer = await asyncio.open_connection('0.0.0.0', 8888)
+        reader, writer = await asyncio.open_connection('localhost', 8888)
         addr = writer.get_extra_info('sockname')
         print(f"{addr} is connected to Engine... (Ctrl+C to stop)")
         while True:
             line = await reader.readline()
             if not line:
                 break
-                
-            # Parse and Print
-            try:
+            try: # Parse and Print
                 data = json.loads(line)
-                print(f"[{data['time']}] {data['symbol']} | Price: \
-                    ${data['price']:.2f} | VWAP: ${data['vwap']:.2f}")
+                time = data['time']
+                sym = data['symbol']
+                price = data['price']
+                vwap = data['vwap']
+                print(
+                    f"[{time}] {sym} | Price: ${price:.2f} | VWAP: ${vwap:.2f}")
             except json.JSONDecodeError:
                 print(f"Raw: {line}")
     except Exception as e:
