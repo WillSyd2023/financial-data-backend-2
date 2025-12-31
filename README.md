@@ -1,11 +1,15 @@
 # End-to-End Real-Time Financial Data Platform
 
 ![Go Version](https://img.shields.io/badge/Go-1.21+-blue.svg)
+![Python Version](https://img.shields.io/badge/Python-3.11+-yellow.svg)
 ![Docker](https://img.shields.io/badge/Docker-Powered-blue)
 
-An end-to-end, event-driven data platform built in Go. This system ingests live financial data from a WebSocket, streams it through a Kafka message bus, processes and stores it in MongoDB, and exposes it via a clean, well-tested REST API.
+An end-to-end, event-driven data platform built in **Go** and **Python**. This system ingests live financial data from WebSockets and streams it through **Apache Kafka** for two uses:
 
-## Live Demo
+1. **Go Service:** stores time-series data in **MongoDB** and exposes it via a clean, well-tested REST API.
+2. **Python Analytics Engine:** leverages **AsyncIO** to calculate **rolling variation of VWAP** in $O(1)$ time, broadcasting real-time metrics to clients via **TCP Sockets.**
+
+## Live Demo of API
 **Base URL:** [http://3.26.92.41/api/v1/trades/AAPL](http://3.26.92.41/api/v1/trades/AAPL)
 * (Deployed on AWS EC2. Returns live JSON data from the cloud database.)
 * See the [API Endpoints](#api-endpoints) section below for full documentation on how to filter and paginate trades.
@@ -20,34 +24,44 @@ graph TD
         A[Live Finnhub WebSocket]
     end
 
-    subgraph "Financial Data Platform (Containerized via Docker)"
-        subgraph "Ingestion Service"
-            B(Go Ingestor)
-        end
+    subgraph "Financial Data Platform"
+        B(Go Ingestor)
         subgraph "Message Bus"
             C[Apache Kafka]
         end
-        subgraph "Processing Service"
-            D(Go Processor)
+        subgraph "Go Service"
+            subgraph "Horizontally Scalable"
+                D(Go Processor)
+            end
+            subgraph "Data Storage"
+                E[MongoDB]
+            end
+            subgraph "Cloud API Service"
+                F(AWS REST API)
+            end
         end
-        subgraph "Data Storage"
-            E[MongoDB]
-        end
-        subgraph "Cloud API Service"
-            F(AWS REST API)
+        subgraph "Python Analytics Layer"
+            H(Python Analytics Engine)
+            I(TCP Server :8888)
         end
     end
 
     subgraph Client
         G[User / Frontend / Postman]
+        J[Python TCP Client]
     end
 
     A -- Real-Time Trade Data --> B
     B -- Publishes Raw Messages --> C
-    D -- Subscribes to Topic --> C
+    C -- Consumer Group A --> D
     D -- Persists Data --> E
     F -- Queries Data --> E
     G -- Makes HTTP Requests --> F
+
+    C -- Consumer Group B --> H
+    H -- O(1) Rolling VWAP --> H
+    H -- Broadcasts Stream --> I
+    J -- Raw TCP Connect --> I
 ```
 
 ## Key Features & Technical Highlights
