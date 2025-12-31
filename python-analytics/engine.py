@@ -47,7 +47,6 @@ class AnalyticsEngine:
         except:
             pass
 
-
     async def broadcast(self, time, symbol, price, vwap):
         '''Broadcast most-recently-updated symbol information to clients'''
         data = (json.dumps({
@@ -67,7 +66,7 @@ class AnalyticsEngine:
         self.clients.add(writer)
         try:
             while True:
-                data = await reader.read()
+                data = await reader.read(1024)
                 if not data:
                     break
         except asyncio.CancelledError:
@@ -102,7 +101,7 @@ class AnalyticsEngine:
         )
         while True:
             try:
-                await consumer.start(1024)
+                await consumer.start()
                 break
             except errors.KafkaConnectionError:
                 logging.warning('Kafka not ready yet. Retrying in 2 seconds...')
