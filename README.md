@@ -61,7 +61,7 @@ graph TD
     C -- Consumer Group B --> H
     H -- O(1) Rolling VWAP --> H
     H -- Broadcasts Stream --> I
-    J -- Raw TCP Connect --> I
+    J -- TCP Connect --> I
 ```
 
 ## Key Features & Technical Highlights
@@ -91,7 +91,16 @@ This project was architected to satisfy many Non-Functional Requirements (NFRs).
 *   **Robust Middleware Chain**: The API is protected by custom Gin middleware. A **Timeout Middleware** actively races handlers against a timer to prevent slow DB queries from exhausting server resources. A **Centralised Error Middleware** captures all failures (including timeouts) to ensure the API always returns a consistent, predictable JSON error response.
 *   **Clean Architecture**: The codebase follows Clean Architecture principles (`Handler` -> `Usecase` -> `Repository`), separating concerns to ensure the system is maintainable and easy to extend.
 
-### 4. DevOps & Quality Assurance
+### 4. Real-Time Analytics Engine (Python)
+*Demonstrating network programming and algorithmic efficiency.*
+
+- **Polyglot Microservices Pattern**: Integrated a Python service alongside the Go architecture. It consumes the same Kafka `raw_stock_ticks` topic using a separate Consumer Group, enabling parallel, decoupled processing of market data without affecting the primary Go pipeline.
+- **AsyncIO & TCP Networking**: Built a TCP server using Python's `asyncio` library. It manages concurrent client connections via an event loop and broadcasts real-time metrics using lightweight **JSON stream** (newline-delimited JSON).
+* **O(1) Rolling VWAP Algorithm**: Implemented a Rolling variation of the **Volume Weighted Average Price**, calculating the average price over a fixed window of recent **ticks** rather than resetting at the start of a trading session.
+    *   **Data Structure**: Utilised `collections.deque` to maintain the window state.
+    *   **Efficiency**: Achieved constant time ($O(1)$) complexity by maintaining running totals—adding the incoming tick's value and subtracting the evicted tick's value—eliminating the need to iterate over the dataset on every update.
+
+### 5. DevOps & Quality Assurance
 *Ensuring reliability through automation.*
 
 *   **Automated CI Pipeline**: A **GitHub Actions** workflow serves as a strict quality gate, automatically running the full test suite on every push to `main`. This prevents regression and ensures that code works as intended on a neutral environment (as opposed to just local environment.)
@@ -102,15 +111,15 @@ This project was architected to satisfy many Non-Functional Requirements (NFRs).
 
 ## Tech Stack
 
-| Category      | Technology                                             |
-|---------------|--------------------------------------------------------|
-| **Language**  | Go                                                     |
-| **Pipeline**  | Apache Kafka, Gorilla WebSocket                        |
-| **API**       | Gin (Web Framework)                                    |
-| **Database**  | MongoDB (with Time Series Collections)                 |
-| **Testing**   | Go Standard Library, `testify`, `mockery`              |
-| **CI/CD**     | GitHub Actions (Automated Testing)                     |
-| **Infrastructure** | Docker, Docker Compose, AWS (EC2)                 |
+| Category           | Technology                                            |
+| ------------------ | ----------------------------------------------------- |
+| **Language**       | Go (1.24), Python (3.11)                              |
+| **Pipeline**       | Apache Kafka, Gorilla WebSocket, AsyncIO (Python)     |
+| **API**            | Gin (REST), TCP Sockets                           |
+| **Database**       | MongoDB (with Time Series Collections)                |
+| **Testing**        | Go: Std Lib, `testify`, `mockery`; Python: `unittest` |
+| **CI/CD**          | GitHub Actions (Automated Testing)                    |
+| **Infrastructure** | Docker, Docker Compose, AWS (EC2)                     |
 
 ## API Endpoints
 
@@ -239,7 +248,19 @@ From the project root, start the entire platform with a single command:
 ```bash
 docker compose up --build
 ```
-The API will be available at `http://localhost:8000`.
+The API will be available at `http://localhost:8000` (if run locally.)
+
+### 3. Run the Real-Time Analytics Client
+While `docker compose up` starts the backend microservices, the Python **TCP Client** is designed to run interactively in your terminal to monitor the data stream.
+
+1.  Ensure the Docker stack (at least the Go Ingestor and Python analytics engine) is running.
+2.  Open a new terminal window.
+3.  Run the client script:
+    ```bash
+    # Requires Python 3 installed locally
+    python python-analytics/client.py
+    ```
+    *You will see a live feed of trades and calculated VWAP streaming from the engine.*
 
 ## Running Tests
 
