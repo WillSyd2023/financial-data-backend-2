@@ -13,6 +13,26 @@ An end-to-end, event-driven data platform built in **Go** and **Python**. This s
 1. **Go Service:** stores time-series data in **MongoDB** and exposes it via a clean, well-tested REST API.
 2. **Python Analytics Engine:** leverages **AsyncIO** to calculate **rolling variation of VWAP** in $O(1)$ time, broadcasting real-time metrics to clients via **TCP Sockets.**
 
+## Table of Contents
+- [Live Demo](#live-demo-of-api)
+- [System Architecture](#system-architecture)
+- [Key Features & Technical Highlights](#key-features--technical-highlights)
+  - [1. Availability & Scalability](#1-availability--scalability)
+  - [2. Data Consistency & Integrity](#2-data-consistency--integrity)
+  - [3. API Performance & Design](#3-api-performance--design)
+  - [4. Real-Time Analytics Engine (Python)](#4-real-time-analytics-engine-python)
+  - [5. DevOps & Quality Assurance](#5-devops--quality-assurance)
+- [Tech Stack](#tech-stack)
+- [API Endpoints](#api-endpoints)
+- [Getting Started](#getting-started)
+  - [Configuration](#1-configuration)
+  - [Run the Application](#2-run-the-application)
+  - [Run the Analytics Client](#3-run-the-real-time-analytics-client)
+- [Running Tests](#running-tests)
+- [Production Deployment (AWS)](#production-deployment-aws)
+- [Horizontal Scalability](#demonstrating-horizontal-scalability)
+- [Future Improvements](#future-improvements)
+
 ## Live Demo of API
 **Base URL:** [http://3.26.92.41/api/v1/trades/AAPL](http://3.26.92.41/api/v1/trades/AAPL)
 * (Deployed on AWS EC2. Returns live JSON data from the cloud database.)
