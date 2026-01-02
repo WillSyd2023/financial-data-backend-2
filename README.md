@@ -4,6 +4,10 @@
 ![Python Version](https://img.shields.io/badge/Python-3.11+-yellow.svg)
 ![Docker](https://img.shields.io/badge/Docker-Powered-blue)
 
+![](docs/client_demo.gif)
+> **Demo:** Real-time terminal dashboard (TUI) visualising high-frequency market data and **$O(1)$ Rolling VWAP** metrics, streamed via **TCP Sockets**.
+
+
 An end-to-end, event-driven data platform built in **Go** and **Python**. This system ingests live financial data from WebSockets and streams it through **Apache Kafka** for two uses:
 
 1. **Go Service:** stores time-series data in **MongoDB** and exposes it via a clean, well-tested REST API.
@@ -48,7 +52,7 @@ graph TD
 
     subgraph Client
         G[User / Frontend / Postman]
-        J[Python TCP Client]
+        J["Python TCP Terminal Client (TUI)"]
     end
 
     A -- Real-Time Trade Data --> B
@@ -95,10 +99,11 @@ This project was architected to satisfy many Non-Functional Requirements (NFRs).
 *Demonstrating network programming and algorithmic efficiency.*
 
 - **Polyglot Microservices Pattern**: Integrated a Python service alongside the Go architecture. It consumes the same Kafka `raw_stock_ticks` topic using a separate Consumer Group, enabling parallel, decoupled processing of market data without affecting the primary Go pipeline.
-- **AsyncIO & TCP Networking**: Built a TCP server using Python's `asyncio` library. It manages concurrent client connections via an event loop and broadcasts real-time metrics using lightweight **JSON stream** (newline-delimited JSON).
+- **AsyncIO & TCP Networking**: Built a TCP server using Python's `asyncio` library. It manages concurrent client connections via an event loop and broadcasts real-time metrics via **TCP Sockets** to a **Live Terminal Dashboard (TUI)** built with `rich`.
 * **O(1) Rolling VWAP Algorithm**: Implemented a Rolling variation of the **Volume Weighted Average Price**, calculating the average price over a fixed window of recent **ticks** rather than resetting at the start of a trading session.
     *   **Data Structure**: Utilised `collections.deque` to maintain the window state.
     *   **Efficiency**: Achieved constant time ($O(1)$) complexity by maintaining running totals—adding the incoming tick's value and subtracting the evicted tick's value—eliminating the need to iterate over the dataset on every update.
+- **Exchange Simulation Mode**: Engineered a standalone **Mock Engine** to simulate high-frequency market conditions (synthetic ticker generation). This allows for offline development and testing of clients without being constrained by external API rate limits.
 
 ### 5. DevOps & Quality Assurance
 *Ensuring reliability through automation.*
@@ -108,6 +113,7 @@ This project was architected to satisfy many Non-Functional Requirements (NFRs).
     1.  **Unit Tests**: 100% coverage on API business logic (Usecase) and 82% on Processor transformation logic.
     2.  **Request Layer Integration**: Validates the full interaction chain between Middleware, Handler and Usecase (96% middleware coverage).
     3.  **Repository Integration**: Runs against a **live MongoDB test database** to verify query behaviour and validate the **idempotency strategy** (82% repository coverage).
+    4. **Simulation Testing**: Utilises the Python **Mock Engine** to generate deterministic, high-frequency synthetic data streams, verifying that the TUI remains responsive and flicker-free under rapid update cycles.
 
 ## Tech Stack
 
@@ -255,12 +261,24 @@ While `docker compose up` starts the backend microservices, the Python **TCP Cli
 
 1.  Ensure the Docker stack (at least the Go Ingestor and Python analytics engine) is running.
 2.  Open a new terminal window.
-3.  Run the client script:
+3.  Launch the terminal-based client to visualise live price feeds and VWAP calculations.
     ```bash
     # Requires Python 3 installed locally
     python python-analytics/client.py
     ```
     *You will see a live feed of trades and calculated VWAP streaming from the engine.*
+
+#### Quick Start (Simulation Mode)
+Want to see the TUI in action without setting up Kafka or Docker? Run the included mock engine:
+
+1.  **Start the Mock Engine:**
+    ```bash
+    python python-analytics/mock_engine.py
+    ```
+2.  **Start the Client:**
+    ```bash
+    python python-analytics/client.py
+    ```
 
 ## Running Tests
 
