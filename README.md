@@ -123,7 +123,7 @@ This project was architected to satisfy many Non-Functional Requirements (NFRs).
 * **O(1) Rolling VWAP Algorithm**: Implemented a Rolling variation of the **Volume Weighted Average Price**, calculating the average price over a fixed window of recent **ticks** rather than resetting at the start of a trading session.
     *   **Data Structure**: Utilised `collections.deque` to maintain the window state.
     *   **Efficiency**: Achieved constant time ($O(1)$) complexity by maintaining running totals—adding the incoming tick's value and subtracting the evicted tick's value—eliminating the need to iterate over the dataset on every update.
-- **Exchange Simulation Mode**: Engineered a standalone **Mock Engine** to simulate high-frequency market conditions (synthetic ticker generation). This allows for offline development and testing of clients without being constrained by external API rate limits.
+- **Trade Data Simulation Mode**: Engineered a standalone **Mock Trade Data Feed** to generate high-frequency synthetic live market data. This allows for offline development and testing of clients without being constrained by external API rate limits.
 
 ### 5. DevOps & Quality Assurance
 *Ensuring reliability through automation.*
